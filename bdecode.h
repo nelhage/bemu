@@ -72,7 +72,7 @@ typedef struct {
     int16_t   imm;
 } bdecode;
 
-void decode_op(uint32_t **instr, bdecode *decode);
+void decode_op(uint32_t instr, bdecode *decode);
 bool decode_valid(bdecode *decode);
 
 #endif

@@ -2,12 +2,10 @@
 
 
 /*
- * Decode the instruction pointed to by `instr' into `decode',
- * advancing `instr' as to point to the next instruction.
+ * Decode a 32-bit \Beta opcode into a bdecode struct
  */
-void decode_op(uint32_t **instr, bdecode *decode)
+void decode_op(uint32_t op, bdecode *decode)
 {
-    uint32_t op = *((*instr)++);
     decode->opcode = BOP_OP(op);
     decode->ra     = BOP_RA(op);
     decode->rb     = BOP_RB(op);
