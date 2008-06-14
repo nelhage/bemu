@@ -12,7 +12,7 @@ void bcpu_execute_one(bdecode *decode) {
     CPU.PC += 4;
     switch(decode->opcode) {
 
-        #define ARITH(NAME, OP)                                              \
+#define ARITH(NAME, OP)                                              \
     case OP_ ## NAME: CPU.regs[decode->rc] =                         \
         CPU.regs[decode->ra] OP CPU.regs[decode->rb];                \
     break;                                                           \
@@ -29,32 +29,17 @@ void bcpu_execute_one(bdecode *decode) {
         ARITH(SHL, <<)
         ARITH(SHR, >>)
 /*
- * C doesn't have an operator for arithmetic shift right,
- * but my hardware does, and damned if I'm not going to
- * use it.
+ * We can get an arithmetic shift by forcing the compiler to treat the
+ * value as signed
  */
     case OP_SRA:
-        __asm__("sar %%cl, %%eax"           :
-                /* Output */
-                "=a" (CPU.regs[decode->rc]) :
-                /* Input */
-                "a" (CPU.regs[decode->ra]),
-                "c" (CPU.regs[decode->rb])  :
-                /* Clobbers */
-                "cc"
-                );
+        CPU.regs[decode->rc] =
+            ((int32_t)(CPU.regs[decode->ra])) >> CPU.regs[decode->rb];
         break;
 
     case OP_SRAC:
-        __asm__("sar %%cl, %%eax"           :
-                /* Output */
-                "=a" (CPU.regs[decode->rc]) :
-                /* Input */
-                "a" (CPU.regs[decode->ra]),
-                "c" (decode->imm)           :
-                /* Clobbers */
-                "cc"
-                );
+        CPU.regs[decode->rc] =
+            ((int32_t)(CPU.regs[decode->ra])) >> decode->imm;
         break;
 
         ARITH(SUB, -)
