@@ -9,7 +9,7 @@ uint32_t *beta_mem;
 #define ISR_ILLOP       (PC_SUPERVISOR | 0x00000004)
 
 void bcpu_execute_one(bdecode *decode) {
-    CPU->PC += 4;
+    CPU.PC += 4;
     switch(decode->opcode) {
 
         #define ARITH(NAME, OP)                                              \
@@ -107,9 +107,27 @@ void bcpu_execute_one(bdecode *decode) {
         break;
 
     default:
-        /* ILLOP, trigger an exception */
+        CPU.XP = CPU.PC;
+        CPU.PC = ISR_ILLOP;
         break;
     }
 }
 
+void bcpu_reset()
+{
+    CPU.PC = ISR_RESET;
+    /* XXX Do we need to zero registers? */
+}
 
+/*
+ * Advance the \Beta CPU one cycle
+ */
+void bcpu_step_one()
+{
+    bdecode decode;
+    uint32_t op;
+
+    op = beta_mem[BYTE2WORDADDR(CPU.PC)];
+    decode_op(op, &decode);
+    bcpu_execute_one(&decode);
+}

@@ -2,8 +2,9 @@
 #define __BCPU_H__
 
 #include <stdint.h>
+#include "bdecode.h"
 
-#define XP regs[30];
+#define XP regs[30]
 
 typedef struct {
     uint32_t PC;
@@ -21,5 +22,8 @@ extern uint32_t *beta_mem;
 #define WORD2BYTEADDR(addr) ((addr) << 2)
 
 void bcpu_execute_one(bdecode *decode);
+void bcpu_reset();
+void bcpu_step_one();
+
 
 #endif
