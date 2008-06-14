@@ -20,4 +20,6 @@ extern uint32_t *beta_mem;
 #define BYTE2WORDADDR(addr) ((addr) >> 2)
 #define WORD2BYTEADDR(addr) ((addr) << 2)
 
+void bcpu_execute_one(bdecode *decode);
+
 #endif
