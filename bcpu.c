@@ -87,18 +87,21 @@ void bcpu_execute_one(bdecode *decode) {
     case OP_LD:
         LOG("LD from byte %08x", CPU.regs[decode->ra] + decode->imm);
         write_reg(decode->rc,
-                  beta_mem[BYTE2WORDADDR(CPU.regs[decode->ra] + decode->imm)]);
+                  beta_mem[BYTE2WORDADDR((CPU.regs[decode->ra] + decode->imm)
+                                         & ~PC_SUPERVISOR)]);
         break;
 
     case OP_ST:
         LOG("ST to byte %08x", CPU.regs[decode->ra] + decode->imm);
-        beta_mem[BYTE2WORDADDR(CPU.regs[decode->ra] + decode->imm)] =
+        beta_mem[BYTE2WORDADDR((CPU.regs[decode->ra] + decode->imm)
+                               & ~PC_SUPERVISOR)] =
             CPU.regs[decode->rc];
         break;
 
     case OP_LDR:
         write_reg(decode->rc,
-                  beta_mem[BYTE2WORDADDR(CPU.PC + WORD2BYTEADDR(decode->imm))]);
+                  beta_mem[BYTE2WORDADDR(CPU.PC + WORD2BYTEADDR(decode->imm)
+                                         & ~PC_SUPERVISOR)]);
         break;
 
     default:
