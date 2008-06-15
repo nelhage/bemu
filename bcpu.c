@@ -1,5 +1,4 @@
-#include "bcpu.h"
-#include "bdecode.h"
+#include "bemu.h"
 
 beta_cpu CPU;
 uint32_t *beta_mem;
@@ -8,18 +7,39 @@ uint32_t *beta_mem;
 #define ISR_RESET       (PC_SUPERVISOR | 0x00000000)
 #define ISR_ILLOP       (PC_SUPERVISOR | 0x00000004)
 
+inline void write_reg(beta_reg reg, uint32_t val)
+{
+    if(reg != 31) CPU.regs[reg] = val;
+}
+
 void bcpu_execute_one(bdecode *decode) {
     CPU.PC += 4;
+
+    /* For now, kludgily enforce R31 is always 0*/
+    CPU.regs[31] = 0;
+
     switch(decode->opcode) {
 
-#define ARITH(NAME, OP)                                              \
-    case OP_ ## NAME: CPU.regs[decode->rc] =                         \
-        CPU.regs[decode->ra] OP CPU.regs[decode->rb];                \
-    break;                                                           \
-    case OP_ ## NAME ## C: CPU.regs[decode->rc] =                    \
-        CPU.regs[decode->ra] OP decode->imm;                         \
+#define ARITH(NAME, OP)                                                 \
+    case OP_ ## NAME:                                                   \
+        write_reg(decode->rc,                                           \
+                  CPU.regs[decode->ra] OP CPU.regs[decode->rb]);        \
+    break;                                                              \
+    case OP_ ## NAME ## C:                                              \
+        write_reg(decode->rc,                                           \
+                  CPU.regs[decode->ra] OP decode->imm);                 \
     break;
-
+/* signed arithmetic op */
+#define ARITHS(NAME, OP)                                                \
+    case OP_ ## NAME:                                                   \
+        write_reg(decode->rc,                                           \
+                  ((int32_t)CPU.regs[decode->ra])                       \
+                  OP ((int32_t)CPU.regs[decode->rb]));                  \
+    break;                                                              \
+    case OP_ ## NAME ## C:                                              \
+        write_reg(decode->rc,                                           \
+                  ((int32_t)CPU.regs[decode->ra]) OP decode->imm);      \
+    break;
 
         ARITH(ADD, +)
         ARITH(AND, &)
@@ -28,27 +48,15 @@ void bcpu_execute_one(bdecode *decode) {
         ARITH(OR,  |)
         ARITH(SHL, <<)
         ARITH(SHR, >>)
-/*
- * We can get an arithmetic shift by forcing the compiler to treat the
- * value as signed
- */
-    case OP_SRA:
-        CPU.regs[decode->rc] =
-            ((int32_t)(CPU.regs[decode->ra])) >> CPU.regs[decode->rb];
-        break;
-
-    case OP_SRAC:
-        CPU.regs[decode->rc] =
-            ((int32_t)(CPU.regs[decode->ra])) >> decode->imm;
-        break;
-
+        ARITHS(SRA, >>)
         ARITH(SUB, -)
         ARITH(XOR, ^)
-        ARITH(CMPEQ, ==)
-        ARITH(CMPLE, <=)
-        ARITH(CMPLT, <)
+        ARITHS(CMPEQ, ==)
+        ARITHS(CMPLE, <=)
+        ARITHS(CMPLT, <)
 
 #undef ARITH
+#undef ARITHS
 
 /*
  * Compute the new PC given a requested PC. Ensures that
@@ -57,19 +65,19 @@ void bcpu_execute_one(bdecode *decode) {
  */
 #define JMP(newpc) ((newpc) & (0x7FFFFFFF | (CPU.PC & 0x80000000)))
     case OP_JMP:
-        CPU.regs[decode->rc] = CPU.PC;
+        write_reg(decode->rc, CPU.PC);
         CPU.PC = JMP(CPU.regs[decode->ra]);
         break;
 
     case OP_BT:
-        CPU.regs[decode->rc] = CPU.PC;
+        write_reg(decode->rc, CPU.PC);
         if(CPU.regs[decode->ra]) {
             CPU.PC = JMP(CPU.PC + WORD2BYTEADDR(decode->imm));
         }
         break;
 
     case OP_BF:
-        CPU.regs[decode->rc] = CPU.PC;
+        write_reg(decode->rc, CPU.PC);
         if(!CPU.regs[decode->ra]) {
             CPU.PC = JMP(CPU.PC + WORD2BYTEADDR(decode->imm));
         }
@@ -77,18 +85,20 @@ void bcpu_execute_one(bdecode *decode) {
 #undef JMP
 
     case OP_LD:
-        CPU.regs[decode->rc] =
-            beta_mem[BYTE2WORDADDR(CPU.regs[decode->ra] + decode->imm)];
+        LOG("LD from byte %08x", CPU.regs[decode->ra] + decode->imm);
+        write_reg(decode->rc,
+                  beta_mem[BYTE2WORDADDR(CPU.regs[decode->ra] + decode->imm)]);
         break;
 
     case OP_ST:
+        LOG("ST to byte %08x", CPU.regs[decode->ra] + decode->imm);
         beta_mem[BYTE2WORDADDR(CPU.regs[decode->ra] + decode->imm)] =
             CPU.regs[decode->rc];
         break;
 
     case OP_LDR:
-        CPU.regs[decode->rc] =
-            beta_mem[BYTE2WORDADDR(CPU.PC + WORD2BYTEADDR(decode->imm))];
+        write_reg(decode->rc,
+                  beta_mem[BYTE2WORDADDR(CPU.PC + WORD2BYTEADDR(decode->imm))]);
         break;
 
     default:
@@ -102,6 +112,7 @@ void bcpu_reset()
 {
     CPU.PC = ISR_RESET;
     /* XXX Do we need to zero registers? */
+    CPU.regs[31] = 0;
 }
 
 /*
@@ -112,7 +123,14 @@ void bcpu_step_one()
     bdecode decode;
     uint32_t op;
 
-    op = beta_mem[BYTE2WORDADDR(CPU.PC)];
+    op = beta_mem[BYTE2WORDADDR(CPU.PC & ~PC_SUPERVISOR)];
+    
     decode_op(op, &decode);
+    LOG("[PC=%08x bits=%08x] %s", CPU.PC, op, pp_decode(&decode));
+    LOG("ra=%08x, rb=%08x, rc=%08x",
+        CPU.regs[decode.ra],
+        CPU.regs[decode.rb],
+        CPU.regs[decode.rc]);
+
     bcpu_execute_one(&decode);
 }

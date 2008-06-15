@@ -56,11 +56,10 @@ typedef enum {
 #define OP_ST           0x19
 #define OP_LDR          0x1F
 
-#define BOP_CLASS(op) ((op) >> 30)
-#define BOP_OP(op)    (((op) >> 25) & 0x3F)
-#define BOP_RA(op)    (((op) >> 10) & 0x1F)
-#define BOP_RB(op)    (((op) >> 15) & 0x1F)
-#define BOP_RC(op)    (((op) >> 20) & 0x1F)
+#define BOP_OP(op)    (((op) >> 26) & 0x3F)
+#define BOP_RA(op)    (((op) >> 16) & 0x1F)
+#define BOP_RB(op)    (((op) >> 11) & 0x1F)
+#define BOP_RC(op)    (((op) >> 21) & 0x1F)
 #define BOP_CONST(op) ((int16_t)((op) & 0xFFFF))
 
 typedef uint8_t beta_op;
@@ -72,7 +71,14 @@ typedef struct {
     int16_t   imm;
 } bdecode;
 
+/*
+ * Opcode classes 0b11 and 0b01 both have an immediate
+ * operand. 0b00 and 0b10 do not.
+ */
+#define OP_IMM(op) ((op) & 0x10)
+
 void decode_op(uint32_t instr, bdecode *decode);
 bool decode_valid(bdecode *decode);
+char *pp_decode(bdecode *decode);
 
 #endif
