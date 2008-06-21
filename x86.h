@@ -83,14 +83,26 @@ typedef enum {
  * immediate value if appropriate.
  */
 
-#define X86_ADD_IMM32_MR32(buf, mod, reg) ({    \
+#define X86_ADD_IMM32_RM32(buf, mod, reg) ({    \
             X86_BYTE(buf, 0x81);                \
             X86_BYTE(buf, MODRM(mod,0x0,reg));  \
         })
 
-#define X86_ADD_IMM8_MR32(buf, mod, reg) ({     \
+#define X86_ADD_IMM8_RM32(buf, mod, reg) ({     \
             X86_BYTE(buf, 0x83);                \
             X86_BYTE(buf, MODRM(mod,0x0,reg));  \
         })
+
+#define X86_ADD_R32_RM32(buf, rsrc, mod, reg) ({ \
+            X86_BYTE(buf, 0x01);                 \
+            X86_BYTE(buf, MODRM(mod,rsrc,reg));  \
+        })
+
+#define X86_ADD_RM32_R32(buf, mod, reg, rdst) ({ \
+            X86_BYTE(buf, 0x03);                 \
+            X86_BYTE(buf, MODRM(mod,rdst,reg));  \
+        })
+
+
 
 #endif
