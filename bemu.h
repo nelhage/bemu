@@ -12,9 +12,11 @@
 
 #include "bdecode.h"
 #include "bcpu.h"
+#include "x86.h"
 
 #ifdef DEBUG
 #define LOG(fmt, ...) printf("%s:%d: " fmt "\n", __FILE__, __LINE__, __VA_ARGS__)
+#define ASSERT(x)     if(!(x)) {LOG("FAILED ASSERT : %s", #x); exit(1);}
 #else
 #define LOG(fmt, ...)
 #endif
