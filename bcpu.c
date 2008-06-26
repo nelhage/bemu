@@ -9,13 +9,16 @@ uint32_t *beta_mem;
 
 inline void write_reg(beta_reg reg, uint32_t val)
 {
-    if(reg != 31) CPU.regs[reg] = val;
+    CPU.regs[reg] = val;
 }
 
 void bcpu_execute_one(bdecode *decode) {
-    CPU.PC += 4;
+    uint32_t old_pc;
 
-    /* For now, kludgily enforce R31 is always 0*/
+    CPU.PC += 4;
+    /*
+     * Enforce R31 is always 0
+     */
     CPU.regs[31] = 0;
 
     switch(decode->opcode) {
@@ -65,22 +68,25 @@ void bcpu_execute_one(bdecode *decode) {
  */
 #define JMP(newpc) ((newpc) & (0x7FFFFFFF | (CPU.PC & 0x80000000)))
     case OP_JMP:
-        write_reg(decode->rc, CPU.PC);
+        old_pc = CPU.PC;
         CPU.PC = JMP(CPU.regs[decode->ra]);
+        write_reg(decode->rc, old_pc);
         break;
 
     case OP_BT:
-        write_reg(decode->rc, CPU.PC);
+        old_pc = CPU.PC;
         if(CPU.regs[decode->ra]) {
             CPU.PC = JMP(CPU.PC + WORD2BYTEADDR(decode->imm));
         }
+        write_reg(decode->rc, old_pc);
         break;
 
     case OP_BF:
-        write_reg(decode->rc, CPU.PC);
+        old_pc = CPU.PC;
         if(!CPU.regs[decode->ra]) {
             CPU.PC = JMP(CPU.PC + WORD2BYTEADDR(decode->imm));
         }
+        write_reg(decode->rc, old_pc);
         break;
 #undef JMP
 
