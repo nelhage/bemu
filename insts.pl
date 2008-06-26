@@ -58,6 +58,27 @@ while (my ($mnm, $opc) = each %arith) {
     }
 }
 
+my %shifts = ( # CL            imm8
+    shl =>      [[0xD3, 4],    [0xC1, 4]],
+    shr =>      [[0xD3, 5],    [0xC1, 5]],
+    sar =>      [[0xD3, 7],    [0xC1, 7]],
+    );
+
+while(my ($mnm, $spec) = each %shifts) {
+    my $cl = shift @$spec;
+    my ($opc, $reg) = @$cl;
+    opcode($mnm, 'cl', 'rm32', [qw(mod reg)] => sub {
+               byte(h $opc);
+               modrm('mod', $reg, 'reg');
+           });
+    my $imm = shift @$spec;
+    ($opc, $reg) = @$imm;
+    opcode($mnm, 'imm8', 'rm32', [qw(mod reg)] => sub {
+               byte(h $opc);
+               modrm('mod', $reg, 'reg');
+           });
+}
+
 header ('call');
 
 opcode('call', 'rel32', [], sub {
@@ -100,6 +121,14 @@ opcode ('cmov', 'rm32', 'r32', [qw(cc mod reg dst)] => sub {
             byte(h 0x0f);
             byte('0x40 | cc');
             modrm('mod', 'dst', 'reg');
+        });
+
+header ('setcc');
+
+opcode ('setcc', 'rm8', [qw(cc mod reg)] => sub {
+            byte(h 0x0f);
+            byte('0x90 | cc');
+            modrm('mod', 0, 'reg');
         });
 
 # Start helper routines
