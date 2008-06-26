@@ -46,8 +46,6 @@ typedef enum {
 #define OP_CMPLT        OP_ARITH(0x05)
 #define OP_CMPLTC       OP_ARITHC(0x05)
 
-#undef  ARITH
-
 #define OP_JMP          0x1B
 #define OP_BT           0x1E
 #define OP_BF           0x1D
