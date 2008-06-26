@@ -19,6 +19,7 @@
 #define ASSERT(x)     if(!(x)) {LOG("FAILED ASSERT : %s", #x); exit(1);}
 #else
 #define LOG(fmt, ...)
+#define ASSERT(x)
 #endif
 
 
