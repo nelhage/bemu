@@ -110,6 +110,9 @@ void bcpu_execute_one(bdecode *decode) {
                                          & ~PC_SUPERVISOR)]);
         break;
 
+    case OP_HALT:
+        CPU.halt = 1;
+
     default:
         CPU.XP = CPU.PC;
         CPU.PC = ISR_ILLOP;
@@ -122,6 +125,7 @@ void bcpu_reset()
     CPU.PC = ISR_RESET;
     /* XXX Do we need to zero registers? */
     CPU.regs[31] = 0;
+    CPU.halt = 0;
 }
 
 /*

@@ -9,6 +9,7 @@
 typedef struct {
     uint32_t PC;
     uint32_t regs[32];
+    bool     halt;
 } beta_cpu;
 
 extern beta_cpu CPU;

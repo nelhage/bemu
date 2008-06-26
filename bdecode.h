@@ -54,6 +54,9 @@ typedef enum {
 #define OP_ST           0x19
 #define OP_LDR          0x1F
 
+/* Temporary kludge */
+#define OP_HALT         0x00
+
 #define BOP_OP(op)    (((op) >> 26) & 0x3F)
 #define BOP_RA(op)    (((op) >> 16) & 0x1F)
 #define BOP_RB(op)    (((op) >> 11) & 0x1F)
