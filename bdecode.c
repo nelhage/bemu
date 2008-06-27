@@ -9,7 +9,7 @@ void decode_op(uint32_t op, bdecode *decode)
     decode->ra     = BOP_RA(op);
     decode->rb     = BOP_RB(op);
     decode->rc     = BOP_RC(op);
-    decode->imm    = BOP_CONST(op);
+    decode->imm    = (int32_t)BOP_CONST(op);
 }
 
 static bool op_valid_table[64] = {

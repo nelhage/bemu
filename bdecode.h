@@ -69,14 +69,15 @@ typedef uint8_t beta_reg;
 typedef struct {
     beta_op   opcode;
     beta_reg  ra, rb, rc;
-    int16_t   imm;
+    int32_t   imm;
 } bdecode;
 
 /*
  * Opcode classes 0b11 and 0b01 both have an immediate
  * operand. 0b00 and 0b10 do not.
  */
-#define OP_IMM(op) ((op) & 0x10)
+#define OP_IMM(op)   ((op) & 0x10)
+#define OP_CLASS(op) ((op) >> 4)
 
 void decode_op(uint32_t instr, bdecode *decode);
 bool decode_valid(bdecode *decode);
