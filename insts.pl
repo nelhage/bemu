@@ -79,6 +79,32 @@ while(my ($mnm, $spec) = each %shifts) {
            });
 }
 
+header ('imul');
+
+opcode('imul', 'rm32', 'r32', [qw(mod reg dst)] => sub {
+           byte(h 0x0f);
+           byte(h 0xaf);
+           modrm('mod', 'dst', 'reg');
+       });
+
+opcode('imul', 'imm32', 'rm32', 'r32', [qw(mod reg dst)] => sub {
+           byte(h 0x69);
+           modrm('mod', 'dst', 'reg');
+       });
+
+header ('idiv');
+
+opcode('idiv', 'rm32', [qw(mod reg)] => sub {
+           byte(h 0xf7);
+           modrm('mod', h 0x7, 'reg');
+       });
+
+header ('cdq');
+
+opcode('cdq', [] => sub {
+           byte(h 0x99);
+       });
+
 header ('call');
 
 opcode('call', 'rel32', [], sub {
