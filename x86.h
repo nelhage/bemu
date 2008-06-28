@@ -78,6 +78,11 @@ typedef enum {
 
 #define REG_SIB          REG_ESP
 
+/*
+ * With mod = 0, this specifies a 32-bit displacement
+ */
+#define REG_DISP32       REG_EBP
+
 #define X86_BYTE(ptr, byte) ({                  \
             uint8_t _byte = (uint8_t)(byte);    \
             ccbuff _ptr = (ccbuff)(ptr);        \
@@ -88,7 +93,7 @@ typedef enum {
 #define X86_4BYTE(ptr, val) ({                    \
             uint32_t _val = (uint32_t)(val);      \
             ccbuff _ptr = (ccbuff)(ptr);          \
-            *_ptr = _val;                         \
+            *((uint32_t*)_ptr) = _val;            \
             ptr += sizeof _val;                   \
         })
 
