@@ -1,0 +1,74 @@
+.include beta.uasm
+
+| This benchmark makes two calls to an subroutine
+| that performs an unsigned divide of its arguments,
+| and then checks the returned results.
+
+| On an unpipelined Beta, the benchmark should write
+| a "1" to location 0xB0 during cycle 387
+
+. = 0
+
+| here on reset
+
+	BR(Start)
+IllInst:
+	BR(IllInst)
+Trap:
+	BR(Trap)
+
+Start:
+	CMOVE(tos,SP)
+	CMOVE(32761,R0)
+	CMOVE(5,R1)
+	BR(UDiv16,LP)
+x1:	CMPEQC(R1,6552,R2)
+	BF(R2,error)
+	CMPEQC(R0,1,R2)
+	BF(R2,error)
+
+	CMOVE(32227,R0)
+	CMOVE(37,R1)
+	BR(UDiv16,LP)
+x2:	CMPEQC(R1,871,R2)
+	BF(R2,error)
+	CMPEQC(R0,0,R2)
+	BF(R2,error)
+
+	CMOVE(1,R0)
+	BR(done)
+error:
+	CMOVE(0,R0)
+done:	ST(R0,tos)
+	HALT()
+
+| unsigned 16-bit divide: R0 = dividend,  R1 = divisor
+UDiv16:
+	CMOVE(16,R2)		| W = 16
+	CMOVE(0,R3)		| Q = 0
+Uloop:
+	SHL(R1,R2,R4)		| r4 = divisor << iter
+	CMOVE(1,R5)
+	SHL(R5,R2,R5)		| r5 = 1 << iter
+	CMPLTC(R0,0,R6)
+	BT(R6,Uneg)
+	SUB(R0,R4,R0)		| R -= divisor << iter
+	ADD(R3,R5,R3)		| Q += 1 << iter
+	BR(Unext)
+Uneg:
+	ADD(R0,R4,R0)		| R += divisor << iter
+	SUB(R3,R5,R3)		| Q -= 1 << iter
+Unext:
+	SUBC(R2,1,R2)		| iter -= 1
+	CMPLTC(R2,0,R6)
+	BF(R6,Uloop)
+
+	CMPLTC(R0,0,R6)
+	BF(R6,Udone)
+	ADD(R1,R0,R0)
+	SUBC(R3,1,R3)
+Udone:
+	MOVE(R3,R1)		| R0 = remainder, R1 = quotient
+	JMP(LP)
+
+tos:	LONG(0)

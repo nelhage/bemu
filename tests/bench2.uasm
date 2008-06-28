@@ -1,0 +1,140 @@
+.include beta.uasm
+
+| This benchmark makes two subroutine calls: one
+| to do an in-place reverse an 11-element list,
+| the second to compare the reversed list with a
+| "answer" list to see if all went well.
+
+| On an unpipelined Beta, the benchmark should write
+| a "1" to location 0x1F4 during cycle 216
+
+. = 0
+
+| here on reset
+
+	BR(Start)
+IllInst:
+	BR(IllInst)
+Trap:
+	BR(Trap)
+
+Start:
+	CMOVE(tos,SP)
+	CMOVE(list1,R0)
+	PUSH(R0)
+	BR(Reverse,LP)
+	DEALLOCATE(1)
+	PUSH(R0)
+	CMOVE(list2,R0)
+	PUSH(R0)
+	BR(Equal,LP)
+	DEALLOCATE(2)
+done:
+	ST(R0,tos)
+	HALT()
+
+| in-place reverse of list
+Reverse:
+	PUSH(LP)
+	PUSH(BP)
+	MOVE(SP,BP)
+	PUSH(R1)
+	PUSH(R2)
+	CMOVE(0,R0)	| last = nil
+	LD(BP,-12,R1)
+	BEQ(R1,Rdone)
+Rloop:
+	LD(R1,4,R2)	| next = cdr(this)
+	ST(R0,4,R1)
+	MOVE(R1,R0)	| last = this
+	MOVE(R2,R1)	| this = next
+	BNE(R1,Rloop)
+Rdone:			| return last
+	POP(R2)
+	POP(R1)
+	POP(BP)
+	POP(LP)
+	JMP(LP)
+
+| see if two lists are equal
+Equal:
+	PUSH(LP)
+	PUSH(BP)
+	MOVE(SP,BP)
+	PUSH(R1)
+	PUSH(R2)
+	PUSH(R3)
+	LD(BP,-12,R0)
+	LD(BP,-16,R1)
+Eloop:
+	BNE(R0,E1)	| if (null R0) and (null R1) return t
+	BEQ(R1,Etrue)
+E1:
+	BEQ(R1,Efalse)
+	LD(R0,0,R2)
+	LD(R1,0,R3)
+	CMPEQ(R2,R3,R2)
+	BF(R2,Efalse)
+	LD(R0,4,R0)
+	LD(R1,4,R1)
+	BR(Eloop)
+Efalse:
+	CMOVE(0,R0)
+	BR(Edone)
+Etrue:
+	CMOVE(1,R0)	| return t
+Edone:	
+	POP(R3)
+	POP(R2)
+	POP(R1)
+	POP(BP)
+	POP(LP)
+	JMP(LP)
+
+list1x:	LONG(1)
+	LONG(0)
+list1i:	LONG(10)
+	LONG(list1h)
+list1b:	LONG(3)
+	LONG(list1a)
+list1h:	LONG(9)
+	LONG(list1g)
+list1d:	LONG(5)
+	LONG(list1c)
+list1f:	LONG(7)
+	LONG(list1e)
+list1e:	LONG(6)
+	LONG(list1d)
+list1c:	LONG(4)
+	LONG(list1b)
+list1g:	LONG(8)
+	LONG(list1f)
+list1a:	LONG(2)
+	LONG(list1x)
+list1:	LONG(11)
+	LONG(list1i)
+
+list2:	LONG(1)
+	LONG(list2a)
+list2i:	LONG(10)
+	LONG(list2j)
+list2b:	LONG(3)
+	LONG(list2c)
+list2h:	LONG(9)
+	LONG(list2i)
+list2d:	LONG(5)
+	LONG(list2e)
+list2f:	LONG(7)
+	LONG(list2g)
+list2e:	LONG(6)
+	LONG(list2f)
+list2c:	LONG(4)
+	LONG(list2d)
+list2g:	LONG(8)
+	LONG(list2h)
+list2a:	LONG(2)
+	LONG(list2b)
+list2j:	LONG(11)
+	LONG(0)
+
+tos:	LONG(0)

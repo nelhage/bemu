@@ -1,0 +1,33 @@
+.include /mit/6.004/bsim/beta.uasm
+
+| This benchmark makes a copy of itself 0x200
+| bytes further up in memory and then jumps
+| to the first location of the copy.  The
+| process is repeated 7 times.
+
+| On an unpipelined Beta, the benchmark should write
+| 0xC3C to location 0x0 during cycle 497
+
+. = 0
+
+	CMOVE(7,R2)
+Start:
+	BR(.+4,LP)
+	CMOVE(End-Start,R0)
+Loop:
+	LD(LP,-4,R1)
+	ST(R1,0x1FC,LP)
+	ADDC(LP,4,LP)
+	SUBC(R0,4,R0)
+	BNE(R0,Loop)
+	SUBC(R2,1,R2)
+	BEQ(R2,Done)
+	ADDC(LP,0x1FC-End+Start,LP)
+	JMP(LP)
+
+Done:	ST(LP,0,R31)
+	HALT()
+
+End = .
+
+	. = 0xC34
