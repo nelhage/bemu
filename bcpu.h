@@ -11,6 +11,7 @@
 #define XP regs[30]
 
 typedef struct {
+    /* PC *must* be located first */
     uint32_t PC;
     uint32_t regs[32];
     bool     halt;

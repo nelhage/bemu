@@ -10,6 +10,7 @@ uint8_t *bt_stack_base = NULL;
 
 void bt_enter(ccbuff buf) __attribute__((noreturn));
 void bt_translate_and_run(void) __attribute__((noreturn));
+extern void bt_callout(void);
 
 /* During execution, %ebp points to the base of the regfile */
 inline ccbuff bt_translate_arith(ccbuff buf, uint32_t pb, bdecode *inst) {
@@ -180,14 +181,12 @@ void bt_translate_frag(ccbuff buf, decode_frag frag) {
         pc += 4;
     }
     /*
-     * epilogue -- move emulated PC to CPU.PC and return to
-     * bt_translate_and_run
+     * epilogue -- move emulated PC to %eax and jump to bt_callout
      */
-    X86_MOV_IMM32_RM32(buf, MOD_INDIR, REG_DISP32);
-    X86_DISP32(buf, &CPU.PC);
+    X86_MOV_IMM32_R32(buf, REG_EAX);
     X86_IMM32(buf, pc);
     X86_JMP_REL32(buf);
-    X86_IMM32(buf, ((uint8_t*)bt_translate_and_run - (buf + 4)));
+    X86_IMM32(buf, ((uint8_t*)bt_callout - (buf + 4)));
 }
 
 void bt_run() {
@@ -258,3 +257,14 @@ void bt_enter(ccbuff buf) {
                   "jmp *%1" : : "g"(CPU.regs), "r"(buf));
     while(1); /* Satisfy the compiler that we don't return */
 }
+
+#define STRINGIFY(x)  _STRINGIFY(x)
+#define _STRINGIFY(x) #x
+
+asm("\n"
+    "bt_callout:\n\t"
+    "mov %eax, CPU\n\t"
+    "mov bt_stack_base(,1), %eax\n\t"
+    "addl $" STRINGIFY(BT_STACK_SIZE) ", %eax\n\t"
+    "mov %eax, %esp\n\t"
+    "jmp bt_translate_and_run\n");

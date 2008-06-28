@@ -1,0 +1,9 @@
+.include beta.uasm
+
+. = 0
+
+BR(start)
+
+start:
+        ADDC(R1, 10, R1)
+        BR(start)
