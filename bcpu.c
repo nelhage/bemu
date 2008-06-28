@@ -3,10 +3,6 @@
 beta_cpu CPU;
 uint32_t *beta_mem;
 
-#define PC_SUPERVISOR   0x80000000
-#define ISR_RESET       (PC_SUPERVISOR | 0x00000000)
-#define ISR_ILLOP       (PC_SUPERVISOR | 0x00000004)
-
 inline void write_reg(beta_reg reg, uint32_t val)
 {
     CPU.regs[reg] = val;
@@ -92,22 +88,16 @@ void bcpu_execute_one(bdecode *decode) {
 
     case OP_LD:
         LOG("LD from byte %08x", CPU.regs[decode->ra] + decode->imm);
-        write_reg(decode->rc,
-                  beta_mem[BYTE2WORDADDR((CPU.regs[decode->ra] + decode->imm)
-                                         & ~PC_SUPERVISOR)]);
+        write_reg(decode->rc, beta_read_mem32(CPU.regs[decode->ra] + decode->imm));
         break;
 
     case OP_ST:
         LOG("ST to byte %08x", CPU.regs[decode->ra] + decode->imm);
-        beta_mem[BYTE2WORDADDR((CPU.regs[decode->ra] + decode->imm)
-                               & ~PC_SUPERVISOR)] =
-            CPU.regs[decode->rc];
+        beta_write_mem32(CPU.regs[decode->ra] + decode->imm, CPU.regs[decode->rc]);
         break;
 
     case OP_LDR:
-        write_reg(decode->rc,
-                  beta_mem[BYTE2WORDADDR(CPU.PC + WORD2BYTEADDR(decode->imm)
-                                         & ~PC_SUPERVISOR)]);
+        write_reg(decode->rc, beta_read_mem32(CPU.PC + WORD2BYTEADDR(decode->imm)));
         break;
 
     case OP_HALT:
@@ -136,7 +126,7 @@ void bcpu_step_one()
     bdecode decode;
     uint32_t op;
 
-    op = beta_mem[BYTE2WORDADDR(CPU.PC & ~PC_SUPERVISOR)];
+    op = beta_read_mem32(CPU.PC);
     
     decode_op(op, &decode);
     LOG("[PC=%08x bits=%08x] %s", CPU.PC, op, pp_decode(&decode));

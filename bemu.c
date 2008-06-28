@@ -22,19 +22,27 @@ int main(int argc, char **argv)
     }
 
     if((beta_mem = mmap(NULL, stat.st_size, PROT_READ|PROT_WRITE,
-                        MAP_SHARED, fd, 0)) == MAP_FAILED) {
+                        MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
         perror("mmap");
         exit(-1);
     }
-
-    bcpu_reset();
-
-    while(!CPU.halt) {
-        bcpu_step_one();
-    }
-
-    munmap(beta_mem, stat.st_size);
     close(fd);
 
+    bcpu_reset();
+    bt_run();
+
+    munmap(beta_mem, stat.st_size);
+
     return 0;
+}
+
+void panic(char *fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+
+    exit(-1);
 }
