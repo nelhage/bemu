@@ -7,6 +7,9 @@
 #define bool uint8_t
 #endif
 
+#define TRUE  1
+#define FALSE 0
+
 typedef enum {
     CLASS_ARITH   = 0x2,
     CLASS_ARITHC  = 0x3,
