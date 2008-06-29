@@ -32,7 +32,7 @@ static void bt_insert_frag(compiled_frag *frag);
 /* frag cache management */
 
 void bt_clear_cache() {
-    LOG("Clearing BT cache\n",1);
+    LOG("Clearing BT cache",1);
     frag_alloc = frag_cache;
     memset(frag_hash, 0, sizeof frag_hash);
 }
@@ -323,7 +323,7 @@ void bt_translate_and_run() {
                 bt_insert_frag(cfrag);
             }
         } else {
-            LOG("Cache HIT at pc 0x%08x\n", pc);
+            LOG("Cache HIT at pc 0x%08x", pc);
         }
 
         if(cfrag) {
