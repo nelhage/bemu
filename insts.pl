@@ -179,7 +179,8 @@ sub opcode {
       $sub->();
       unshift @LINES, ("#define " .
                        join("_", map {uc} @asmargs) .
-                       "(" . join (",", 'buf', @$margs) . ")");
+                       "(" . join (",", 'buf', @$margs) . ")") . "  {";
+      push @LINES, ' ' x 8 . '}';
       my $mlen = max map{length} @LINES;
       my $macro = join("\\\n",
                        map{$_ . (" " x ($mlen + 2 - length $_)) } @LINES);
