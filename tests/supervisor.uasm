@@ -1,0 +1,36 @@
+| Some tests of the supervisor bit
+.include beta.uasm
+
+. = 0
+
+        BR(start)
+illop:
+        JMP(XP)                 | Skip the instruction
+fail:
+        HALT()
+start:
+        BF(R31, .+4, R0)
+        CMPLTC(R0, 0, R1)        | PC should be < 0 -> supervisor
+        BF(R1, fail, R0)
+
+        CMOVE(user, R0)
+        JMP(R0)
+
+user:
+        BF(R31, .+4, R0)
+        CMPLTC(R0, 0, R1)        | Should be user mode
+        BT(R1, fail, R0)
+
+        ||  Try to JMP to supervisor mode
+        CMOVE(user1, R0)
+        CMOVE(1,     R1)
+        SHLC(R1, 31, R1)
+        OR(  R0, R1, R0)
+        JMP(R0)
+user1:
+        BF(R31, .+4, R0)
+        CMPLTC(R0, 0, R1)        | Should still be user mode
+        BT(R1, fail, R0)
+
+        CMOVE(0xABCD, R0)        | Indicate success
+        HALT()
