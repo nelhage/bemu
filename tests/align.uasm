@@ -1,0 +1,42 @@
+| Test unaligned jumps and memory access
+| (The \Beta doesn't allow these, so all accesses should get forced to
+|  word boundaries)
+.include beta.uasm
+
+. = 0
+
+        BR(start)
+illop:
+        HALT()
+fail:
+        HALT()
+start:
+        LD(R31, data, R1)       | Do an aligned access to get a "known-good" value
+        LD(R31, data+1, R2)     | Unaligned access
+
+        CMPEQ(R1, R2, R0)
+        BF(R0, fail)
+
+        CMOVE(data+1, R2)
+        LD(R2, 0, R2)
+
+        CMPEQ(R1, R2, R0)
+        BF(R0, fail)
+
+        || Now test JMP
+        CMOVE(jmp+1, R0)
+        JMP(R0)
+jmp:
+        || If we jump to an unaligned address and then do an unaligned
+        || read, we'll ILLOP and fail. But maybe the PC is unaligned, but
+        || we're masking the bits when we read. Test for that.
+        BT(R31, fail, R0)
+        ANDC(R0, 3, R0)
+        BT(R0, fail)
+done:
+        CMOVE(0xABCD, R0)        | Indicate success
+        HALT()
+
+data:
+        LONG(0x12345678)
+        LONG(0xABCDEF00)

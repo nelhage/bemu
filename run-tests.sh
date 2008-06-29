@@ -42,3 +42,4 @@ run_one bench2   "[80000048] Done" "[00] 00000001 [01] 00000000 [02] 00000000 [0
 run_one bench3   "[80000c38] Done" "[28] 80000c3c [29] 00000000 [30] 00000000 [31] 00000000"
 run_one bench4   "[00] 991727a0 [01] 5096a491 [02] 00000000 [03] 00000000"
 run_one supervisor "[00] ffffabcd"
+run_one align    "[00] ffffabcd"
