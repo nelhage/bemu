@@ -134,18 +134,18 @@ opcode('jmp', 'indir', 'rm32', [qw(mod reg)] => sub {
 header ('jcc');
 
 opcode('jcc', 'rel8', ['cc'] => sub {
-           byte('0x70 | cc');
+           byte('0x70 | (cc)');
        });
 opcode('jcc', 'rel32', ['cc'] => sub {
            byte(h 0x0F);
-           byte('0x80 | cc');
+           byte('0x80 | (cc)');
        });
 
 header ('cmov');
 
 opcode ('cmov', 'rm32', 'r32', [qw(cc mod reg dst)] => sub {
             byte(h 0x0f);
-            byte('0x40 | cc');
+            byte('0x40 | (cc)');
             modrm('mod', 'dst', 'reg');
         });
 
@@ -153,7 +153,7 @@ header ('setcc');
 
 opcode ('setcc', 'rm8', [qw(cc mod reg)] => sub {
             byte(h 0x0f);
-            byte('0x90 | cc');
+            byte('0x90 | (cc)');
             modrm('mod', 0, 'reg');
         });
 
