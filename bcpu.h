@@ -7,8 +7,11 @@
 #define PC_SUPERVISOR   0x80000000
 #define ISR_RESET       (PC_SUPERVISOR | 0x00000000)
 #define ISR_ILLOP       (PC_SUPERVISOR | 0x00000004)
+#define ISR_CLOCK       (PC_SUPERVISOR | 0x00000008)
+#define ISR_KBD         (PC_SUPERVISOR | 0x0000000C)
+#define ISR_MOUSE       (PC_SUPERVISOR | 0x00000010)
 
-#define XP regs[30]
+#define XP 30
 
 typedef struct {
     /* PC *must* be located first */

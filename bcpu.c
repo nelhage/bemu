@@ -104,7 +104,7 @@ void bcpu_execute_one(bdecode *decode) {
         CPU.halt = 1;
 
     default:
-        CPU.XP = CPU.PC;
+        CPU.regs[XP] = CPU.PC;
         CPU.PC = ISR_ILLOP;
         break;
     }
