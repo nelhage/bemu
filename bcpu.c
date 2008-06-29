@@ -102,6 +102,7 @@ void bcpu_execute_one(bdecode *decode) {
 
     case OP_HALT:
         CPU.halt = 1;
+        break;
 
     default:
         CPU.regs[XP] = CPU.PC;
