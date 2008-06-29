@@ -1,4 +1,4 @@
-.include /mit/6.004/bsim/beta.uasm
+.include beta.uasm
 
 | This benchmark just performs a lot register arithmetic
 | and writes the result to memory -- should be a slam

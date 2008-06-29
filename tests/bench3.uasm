@@ -1,4 +1,4 @@
-.include /mit/6.004/bsim/beta.uasm
+.include beta.uasm
 
 | This benchmark makes a copy of itself 0x200
 | bytes further up in memory and then jumps
