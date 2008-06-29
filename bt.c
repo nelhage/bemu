@@ -71,22 +71,32 @@ void bt_insert_frag(compiled_frag *frag) {
 
 /* Actual binary translation */
 
-/* During execution, %ebp points to the base of the regfile */
+/*
+ * During execution, %ebp points to the base of the regfile
+ */
+
+#define LOAD_BETA_REG(buf, breg, x86reg) ({                             \
+    uint8_t __reg = (breg);                                             \
+    if(__reg == 31) {                                                   \
+        X86_XOR_RM32_R32(buf, MOD_REG, x86reg, x86reg);                 \
+    } else {                                                            \
+        X86_MOV_RM32_R32(buf, MOD_INDIR_DISP8, REG_EBP, x86reg);        \
+        X86_DISP8(buf, 4*__reg);                                        \
+    }                                                                   \
+        });
+#define WRITE_BETA_REG(buf, x86reg, breg) ({                            \
+    uint8_t __reg = (breg);                                             \
+    if(__reg != 31) {                                                   \
+        X86_MOV_R32_RM32(buf, x86reg, MOD_INDIR_DISP8, REG_EBP);        \
+        X86_DISP8(buf, 4*__reg);                                        \
+    }                                                                   \
+        });
+
 inline ccbuff bt_translate_arith(ccbuff buf, byteptr pc, bdecode *inst) {
     /* Load %eax with RA, the LHS */
-    if(inst->ra == 31) {
-        X86_XOR_RM32_R32(buf, MOD_REG, REG_EAX, REG_EAX);
-    } else {
-        X86_MOV_RM32_R32(buf, MOD_INDIR_DISP8, REG_EBP, REG_EAX);
-        X86_DISP8(buf, 4*inst->ra);
-    }
+    LOAD_BETA_REG(buf, inst->ra, REG_EAX);
     /* Load %ecx with RB, the RHS */
-    if(inst->rb == 31) {
-        X86_XOR_RM32_R32(buf, MOD_REG, REG_ECX, REG_ECX);
-    } else {
-        X86_MOV_RM32_R32(buf, MOD_INDIR_DISP8, REG_EBP, REG_ECX);
-        X86_DISP8(buf, 4*inst->rb);
-    }
+    LOAD_BETA_REG(buf, inst->rb, REG_ECX);
 
     switch(inst->opcode) {
     case OP_ADD:
@@ -136,10 +146,7 @@ inline ccbuff bt_translate_arith(ccbuff buf, byteptr pc, bdecode *inst) {
         panic("Unknown arithmetic opcode: 0x%02x\n", inst->opcode);
     }
     /* Load %eax into RC */
-    if(inst->rc != 31) {
-        X86_MOV_R32_RM32(buf, REG_EAX, MOD_INDIR_DISP8, REG_EBP);
-        X86_DISP8(buf, 4*inst->rc);
-    }
+    WRITE_BETA_REG(buf, REG_EAX, inst->rc);
     return buf;
 }
 
@@ -214,9 +221,64 @@ inline ccbuff bt_translate_arithc(ccbuff buf, byteptr pc, bdecode *inst) {
         panic("Unknown constant arithmetic opcode: 0x%02x\n", inst->opcode);
     }
     /* Load %eax into RC */
-    if(inst->rc != 31) {
-        X86_MOV_R32_RM32(buf, REG_EAX, MOD_INDIR_DISP8, REG_EBP);
-        X86_DISP8(buf, 4*inst->rc);
+    WRITE_BETA_REG(buf, REG_EAX, inst->rc);
+    return buf;
+}
+
+ccbuff bt_translate_other(ccbuff buf, byteptr pc, bdecode *inst) {
+    switch(inst->opcode) {
+    case OP_ST:
+        /* mov regs[RA], %eax
+         * add IMM, %eax
+         * mov regs[RC], %ecx
+         * and $7FFFFFFC, %eax
+         * mov %ecx, mem[%eax]
+         */
+        LOAD_BETA_REG(buf, inst->ra, REG_EAX);
+
+        if(inst->imm) {
+            X86_ADD_IMM32_RM32(buf, MOD_REG, REG_EAX);
+            X86_IMM32(buf, inst->imm);
+        }
+
+        LOAD_BETA_REG(buf, inst->rc, REG_ECX);
+
+        X86_AND_IMM32_RM32(buf, MOD_REG, REG_EAX);
+        X86_IMM32(buf, ~(PC_SUPERVISOR | 0x3));
+
+        X86_MOV_R32_RM32(buf, REG_ECX, MOD_INDIR_DISP32, REG_EAX);
+        X86_DISP32(buf, beta_mem);
+        break;
+    case OP_LD:
+        /* mov regs[RA], %eax
+         * add IMM, %eax
+         * and $7FFFFFFC, %eax
+         * mov mem[%eax], eax
+         * mov $eax, regs[RC]
+         */
+        LOAD_BETA_REG(buf, inst->ra, REG_EAX);
+
+        if(inst->imm) {
+            X86_ADD_IMM32_RM32(buf, MOD_REG, REG_EAX);
+            X86_IMM32(buf, inst->imm);
+        }
+
+        X86_AND_IMM32_RM32(buf, MOD_REG, REG_EAX);
+        X86_IMM32(buf, ~(PC_SUPERVISOR | 0x3));
+
+        X86_MOV_RM32_R32(buf, MOD_INDIR_DISP32, REG_EAX, REG_EAX);
+        X86_DISP32(buf, beta_mem);
+
+        WRITE_BETA_REG(buf, REG_EAX, inst->rc);
+        break;
+    case OP_LDR:
+        X86_MOV_RM32_R32(buf, MOD_INDIR, REG_DISP32, REG_EAX);
+        X86_DISP32(buf, ((uint32_t)beta_mem) +
+                   ((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03)));
+        WRITE_BETA_REG(buf, REG_EAX, inst->rc);
+        break;
+    default:
+        panic("Unable to translate opcode: 0x%02x\n", inst->opcode);
     }
     return buf;
 }
@@ -227,8 +289,8 @@ inline ccbuff bt_translate_inst(ccbuff buf, byteptr pc, bdecode *inst) {
         return bt_translate_arith(buf, pc, inst);
     case CLASS_ARITHC:
         return bt_translate_arithc(buf, pc, inst);
-     default:
-         panic("Unable to translate instruction class 0x%x", OP_CLASS(inst->opcode));
+    default:
+        return bt_translate_other(buf, pc, inst);
     }
 }
 
@@ -283,9 +345,14 @@ void bt_run() {
 }
 
 inline bool bt_can_translate(bdecode *inst) {
-    return (OP_CLASS(inst->opcode) == CLASS_ARITH ||
-            OP_CLASS(inst->opcode) == CLASS_ARITHC) &&
-        decode_valid(inst);
+    if(!decode_valid(inst)) {
+        return 0;
+    }
+    return OP_CLASS(inst->opcode) == CLASS_ARITH ||
+        OP_CLASS(inst->opcode) == CLASS_ARITHC ||
+        inst->opcode == OP_ST ||
+        inst->opcode == OP_LD ||
+        inst->opcode == OP_LDR;
 }
 
 void bt_translate_and_run() {
@@ -336,7 +403,8 @@ void bt_translate_and_run() {
 
 void bt_enter(ccbuff buf) {
     asm volatile("mov %0, %%ebp\n\t"
-                  "jmp *%1" : : "g"(CPU.regs), "r"(buf));
+                 "jmp *%1"
+                 : : "g"(CPU.regs), "r"(buf));
     while(1); /* Satisfy the compiler that we don't return */
 }
 
