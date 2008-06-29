@@ -20,7 +20,7 @@ Trap:
 Start:
 	CMOVE(0,R0)	| initialize accumulators
 	CMOVE(0,R1)
-	CMOVE(100,R2)	| loop counter
+	CMOVE(500,R2)	| loop counter
 loop:
 	ADDC(R0,1,R0)
 	ADDC(R1,3,R1)
