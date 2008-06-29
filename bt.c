@@ -340,10 +340,8 @@ inline ccbuff bt_translate_tail(ccbuff buf, byteptr pc, bdecode *inst) {
     case OP_JMP:
         SAVE_PC;
         LOAD_BETA_REG(buf, inst->ra, REG_EAX);
-        if(!(pc & PC_SUPERVISOR)) {
-            X86_AND_IMM32_RM32(buf, MOD_REG, REG_EAX);
-            X86_IMM32(buf, ~PC_SUPERVISOR);
-        }
+        X86_AND_IMM32_RM32(buf, MOD_REG, REG_EAX);
+        X86_IMM32(buf, (pc & PC_SUPERVISOR) | ~(PC_SUPERVISOR|0x3));
         break;
     default:
         /* If we made it here, it's an ILLOP */
