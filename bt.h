@@ -11,6 +11,7 @@
 typedef struct {
     byteptr start_pc;
     bdecode  insts[MAX_FRAG_SIZE];
+    bool     tail;
     uint8_t  ninsts;
 } decode_frag;
 

@@ -294,8 +294,68 @@ inline ccbuff bt_translate_inst(ccbuff buf, byteptr pc, bdecode *inst) {
     }
 }
 
+inline ccbuff bt_translate_tail(ccbuff buf, byteptr pc, bdecode *inst) {
+#define SAVE_PC                                                 \
+    if(inst->rc != 31) {                                        \
+        X86_MOV_IMM32_RM32(buf, MOD_INDIR_DISP8, REG_EBP);      \
+        X86_DISP8(buf, 4*inst->rc);                             \
+        X86_IMM32(buf, pc + 4);                                 \
+    }
+
+    switch(inst->opcode) {
+    case OP_BT:
+    case OP_BF:
+        /*
+         * mov   regs[RA], %ecx
+         * mov   (pc+4), %eax
+         * mov   %ecx, regs[RC]
+         * test  %ecx, %ecx
+         * j[n]z .+5
+         * mov   (branch pc), %eax
+         */
+        if(inst->opcode == OP_BF && inst->ra == 31) {
+            /* Unconditional branch */
+            SAVE_PC;
+            X86_MOV_IMM32_R32(buf, REG_EAX);
+            X86_IMM32(buf, (pc + 4 + 4*inst->imm) & ~0x03);
+        } else {
+            LOAD_BETA_REG(buf, inst->ra, REG_ECX);
+
+            X86_MOV_IMM32_R32(buf, REG_EAX);
+            X86_IMM32(buf, pc + 4);
+
+            WRITE_BETA_REG(buf, REG_ECX, inst->rc);
+
+            X86_TEST_R32_RM32(buf, REG_ECX, MOD_REG, REG_ECX);
+
+            X86_JCC_REL8(buf, inst->opcode == OP_BT ? CC_Z : CC_NZ);
+            X86_DISP8(buf, 5);
+
+            X86_MOV_IMM32_R32(buf, REG_EAX);
+            X86_IMM32(buf, (pc + 4 + 4*inst->imm) & ~0x03);
+        }
+        break;
+    case OP_JMP:
+        SAVE_PC;
+        LOAD_BETA_REG(buf, inst->ra, REG_EAX);
+        break;
+    default:
+        /* If we made it here, it's an ILLOP */
+        ASSERT(!decode_valid(inst));
+        /* XP = PC + 4*/
+        X86_MOV_IMM32_RM32(buf, MOD_INDIR_DISP8, REG_EBP);
+        X86_DISP8(buf, 4*XP);
+        X86_IMM32(buf, pc + 4);
+
+        X86_MOV_IMM32_R32(buf, REG_EAX);
+        X86_IMM32(buf, ISR_ILLOP);
+    }
+    return buf;
+}
+
 void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
-    LOG("Translating %d instruction(s) at 0x%08x", frag->ninsts, frag->start_pc);
+    LOG("Translating %d instruction%s at 0x%08x",
+        frag->ninsts, (frag->tail?" (plus tail)" : ""), frag->start_pc);
 
     ccbuff buf = cfrag->code;
     byteptr pc = frag->start_pc;
@@ -305,11 +365,16 @@ void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
         buf = bt_translate_inst(buf, pc, &frag->insts[i]);
         pc += 4;
     }
-    /*
-     * epilogue -- move emulated PC to %eax and jump to bt_callout
-     */
-    X86_MOV_IMM32_R32(buf, REG_EAX);
-    X86_IMM32(buf, pc);
+    if(frag->tail) {
+        buf = bt_translate_tail(buf, pc, &frag->insts[i]);
+    } else {
+        /*
+         * default epilogue -- move emulated PC to %eax and jump to
+         * bt_callout
+         */
+        X86_MOV_IMM32_R32(buf, REG_EAX);
+        X86_IMM32(buf, pc);
+    }
     X86_JMP_REL32(buf);
     X86_IMM32(buf, ((uint8_t*)bt_callout - (buf + 4)));
 }
@@ -364,23 +429,22 @@ void bt_translate_and_run() {
 
 
     while(TRUE) {
-        if(CPU.halt) {
-            longjmp(bt_exit_buf, 1);
-        }
         pc = CPU.PC;
 
         cfrag = bt_find_frag(pc);
 
         if(!cfrag) {
             frag.start_pc = pc;
-
-            while(i < MAX_FRAG_SIZE) {
+            frag.tail = FALSE;
+            for(i = 0; i < MAX_FRAG_SIZE; i++) {
                 inst = beta_read_mem32(pc);
                 decode_op(inst, &frag.insts[i]);
                 if(!bt_can_translate(&frag.insts[i])) {
+                    if(frag.insts[i].opcode != OP_HALT) {
+                        frag.tail = TRUE;
+                    }
                     break;
                 }
-                i++;
                 pc += 4;
             }
             if (i > 0) {
@@ -397,6 +461,9 @@ void bt_translate_and_run() {
             bt_enter(cfrag->code);
         } else {
             bcpu_step_one();
+            if(CPU.halt) {
+                longjmp(bt_exit_buf, 1);
+            }
         }
     }
 }
