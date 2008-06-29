@@ -346,7 +346,7 @@ void bt_enter(ccbuff buf) {
 asm("\n"
     "bt_callout:\n\t"
     "mov %eax, CPU\n\t"
-    "mov bt_stack_base(,1), %eax\n\t"
+    "mov bt_stack_base, %eax\n\t"
     "addl $" STRINGIFY(BT_STACK_SIZE) ", %eax\n\t"
     "mov %eax, %esp\n\t"
     "jmp bt_translate_and_run\n");
