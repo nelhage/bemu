@@ -2,18 +2,77 @@
 
 #include <setjmp.h>
 
-#define BT_STACK_SIZE  65536
+#define BT_STACK_SIZE  (1 << 16)
+/* 1MB translation cache */
+#define BT_CACHE_SIZE  (1 << 20)
 
+static jmp_buf bt_exit_buf;
+static uint8_t *bt_stack_base = NULL;
+static uint8_t *frag_cache = NULL;
+static uint8_t *frag_alloc;
+static compiled_frag *frag_hash[256];
 
-jmp_buf bt_exit_buf;
-uint8_t *bt_stack_base = NULL;
-
-void bt_enter(ccbuff buf) __attribute__((noreturn));
-void bt_translate_and_run(void) __attribute__((noreturn));
+static void bt_enter(ccbuff buf) __attribute__((noreturn));
+static void bt_translate_and_run(void) __attribute__((noreturn));
+static void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag);
 extern void bt_callout(void);
 
+/*
+ * Allocate a compiled_frag out of the frag_cache
+ *
+ * If may_clear is true, will empty the cache if necessary and will
+ * never fail. If `may_clear' is false, it will fail if there is
+ * insufficient space in the cache.
+ */
+static compiled_frag *bt_alloc_cfrag(bool may_clear);
+static void bt_clear_cache();
+static compiled_frag *bt_find_frag(byteptr PC);
+static void bt_insert_frag(compiled_frag *frag);
+
+/* frag cache management */
+
+void bt_clear_cache() {
+    LOG("Clearing BT cache\n",1);
+    frag_alloc = frag_cache;
+    memset(frag_hash, 0, sizeof frag_hash);
+}
+
+
+compiled_frag *bt_alloc_cfrag(bool may_clear) {
+    compiled_frag *frag;
+    if(frag_alloc + sizeof *frag > frag_cache + BT_CACHE_SIZE) {
+        if(may_clear) {
+            bt_clear_cache();
+        } else {
+            return NULL;
+        }
+    }
+
+    frag = (compiled_frag*)frag_alloc;
+    frag_alloc += sizeof *frag;
+}
+
+compiled_frag *bt_find_frag(byteptr PC) {
+    compiled_frag *frag = frag_hash[HASH_PC(PC)];
+    while(frag) {
+        if(frag->start_pc = PC) {
+            return frag;
+        }
+        frag = frag->hash_next;
+    }
+    return NULL;
+}
+
+void bt_insert_frag(compiled_frag *frag) {
+    compiled_frag *old = frag_hash[HASH_PC(frag->start_pc)];
+    frag_hash[HASH_PC(frag->start_pc)] = frag;
+    frag->hash_next = old;
+}
+
+/* Actual binary translation */
+
 /* During execution, %ebp points to the base of the regfile */
-inline ccbuff bt_translate_arith(ccbuff buf, uint32_t pb, bdecode *inst) {
+inline ccbuff bt_translate_arith(ccbuff buf, byteptr pc, bdecode *inst) {
     /* Load %eax with RA, the LHS */
     if(inst->ra == 31) {
         X86_XOR_RM32_R32(buf, MOD_REG, REG_EAX, REG_EAX);
@@ -85,7 +144,7 @@ inline ccbuff bt_translate_arith(ccbuff buf, uint32_t pb, bdecode *inst) {
 }
 
 
-inline ccbuff bt_translate_arithc(ccbuff buf, uint32_t pb, bdecode *inst) {
+inline ccbuff bt_translate_arithc(ccbuff buf, byteptr pc, bdecode *inst) {
     uint32_t constant = inst->imm;
     /* Load %eax with RA, the LHS */
     if(inst->ra == 31) {
@@ -162,7 +221,7 @@ inline ccbuff bt_translate_arithc(ccbuff buf, uint32_t pb, bdecode *inst) {
     return buf;
 }
 
-inline ccbuff bt_translate_inst(ccbuff buf, uint32_t pc, bdecode *inst) {
+inline ccbuff bt_translate_inst(ccbuff buf, byteptr pc, bdecode *inst) {
     switch(OP_CLASS(inst->opcode)) {
     case CLASS_ARITH:
         return bt_translate_arith(buf, pc, inst);
@@ -173,11 +232,15 @@ inline ccbuff bt_translate_inst(ccbuff buf, uint32_t pc, bdecode *inst) {
     }
 }
 
-void bt_translate_frag(ccbuff buf, decode_frag frag) {
-    uint32_t pc = frag.start_pc;
+void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
+    LOG("Translating %d instruction(s) at 0x%08x", frag->ninsts, frag->start_pc);
+
+    ccbuff buf = cfrag->code;
+    byteptr pc = frag->start_pc;
+    cfrag->start_pc = frag->start_pc;
     int i;
-    for(i = 0; i < frag.ninsts; i++) {
-        buf = bt_translate_inst(buf, pc, &frag.insts[i]);
+    for(i = 0; i < frag->ninsts; i++) {
+        buf = bt_translate_inst(buf, pc, &frag->insts[i]);
         pc += 4;
     }
     /*
@@ -196,11 +259,22 @@ void bt_run() {
 
     if(!bt_stack_base) {
         bt_stack_base = mmap(NULL, BT_STACK_SIZE,
-                             PROT_READ|PROT_WRITE|PROT_EXEC,
+                             PROT_READ|PROT_WRITE,
                              MAP_PRIVATE|MAP_ANONYMOUS|MAP_GROWSDOWN, -1, 0);
         if(bt_stack_base == MAP_FAILED) {
+            perror("mmap");
             panic("Unable to allocate BT stack!\n");
         }
+    }
+    if(!frag_cache) {
+        frag_cache = mmap(NULL, BT_CACHE_SIZE,
+                          PROT_READ|PROT_WRITE|PROT_EXEC,
+                          MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+        if(frag_cache == MAP_FAILED) {
+            perror("mmap");
+            panic("Could not allocate BT cache!");
+        }
+        bt_clear_cache();
     }
 
     asm volatile("mov %0, %%esp\n\t"
@@ -215,8 +289,7 @@ inline bool bt_can_translate(bdecode *inst) {
 }
 
 void bt_translate_and_run() {
-    uint8_t buff[CCBUFF_MAX_SIZE];
-    ccbuff tbuff = buff;
+    compiled_frag *cfrag;
     decode_frag frag;
     uint32_t inst;
     uint32_t pc;
@@ -227,27 +300,36 @@ void bt_translate_and_run() {
         if(CPU.halt) {
             longjmp(bt_exit_buf, 1);
         }
-
         pc = CPU.PC;
 
-        frag.start_pc = pc;
+        cfrag = bt_find_frag(pc);
 
-        while(i < MAX_FRAG_SIZE) {
-            inst = beta_read_mem32(pc);
-            decode_op(inst, &frag.insts[i]);
-            if(!bt_can_translate(&frag.insts[i])) {
-                break;
+        if(!cfrag) {
+            frag.start_pc = pc;
+
+            while(i < MAX_FRAG_SIZE) {
+                inst = beta_read_mem32(pc);
+                decode_op(inst, &frag.insts[i]);
+                if(!bt_can_translate(&frag.insts[i])) {
+                    break;
+                }
+                i++;
+                pc += 4;
             }
-            i++;
-            pc += 4;
+            if (i > 0) {
+                frag.ninsts = i;
+                cfrag = bt_alloc_cfrag(TRUE);
+                bt_translate_frag(cfrag, &frag);
+                bt_insert_frag(cfrag);
+            }
+        } else {
+            LOG("Cache HIT at pc 0x%08x\n", pc);
         }
 
-        if (i == 0) {
-            bcpu_step_one();
+        if(cfrag) {
+            bt_enter(cfrag->code);
         } else {
-            frag.ninsts = i;
-            bt_translate_frag(tbuff, frag);
-            bt_enter(tbuff);
+            bcpu_step_one();
         }
     }
 }

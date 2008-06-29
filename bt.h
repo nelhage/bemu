@@ -10,12 +10,19 @@
                                          + CCBUFF_EPILOGUE_SIZE)
 
 typedef struct {
-    uint32_t start_pc;
+    byteptr start_pc;
     bdecode  insts[MAX_FRAG_SIZE];
     uint8_t  ninsts;
 } decode_frag;
 
-void bt_translate_frag(ccbuff buf, decode_frag frag);
+typedef struct compiled_frag {
+    uint8_t code[CCBUFF_MAX_SIZE];
+    byteptr start_pc;
+    struct compiled_frag *hash_next;
+} compiled_frag;
+
+#define HASH_PC(pc) (((pc) >> 2) & 0xFF)
+
 void bt_run();
 
 #endif
