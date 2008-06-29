@@ -7,13 +7,14 @@
 #define BT_CACHE_SIZE  (1 << 20)
 
 static jmp_buf bt_exit_buf;
-static uint8_t *bt_stack_base = NULL;
+uint8_t *bt_stack_base = NULL;
 static uint8_t *frag_cache = NULL;
 static uint8_t *frag_alloc;
 static compiled_frag *frag_hash[256];
 
-static void bt_enter(ccbuff buf) __attribute__((noreturn));
-static void bt_translate_and_run(void) __attribute__((noreturn));
+extern void bt_enter(ccbuff buf) __attribute__((noreturn));
+extern void bt_start() __attribute__((noreturn));
+void bt_translate_and_run(void) __attribute__((noreturn, used));
 static void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag);
 extern void bt_callout(void);
 
@@ -50,6 +51,7 @@ compiled_frag *bt_alloc_cfrag(bool may_clear) {
 
     frag = (compiled_frag*)frag_alloc;
     frag_alloc += sizeof *frag;
+    return frag;
 }
 
 compiled_frag *bt_find_frag(byteptr PC) {
@@ -393,6 +395,8 @@ void bt_run() {
             panic("Unable to allocate BT stack!\n");
         }
     }
+    bt_stack_base += BT_STACK_SIZE;
+
     if(!frag_cache) {
         frag_cache = mmap(NULL, BT_CACHE_SIZE,
                           PROT_READ|PROT_WRITE|PROT_EXEC,
@@ -404,9 +408,7 @@ void bt_run() {
         bt_clear_cache();
     }
 
-    asm volatile("mov %0, %%esp\n\t"
-                 "jmp bt_translate_and_run"
-                 : : "g"(bt_stack_base + BT_STACK_SIZE));
+    bt_start();
 }
 
 inline bool bt_can_translate(bdecode *inst) {
@@ -467,21 +469,3 @@ void bt_translate_and_run() {
         }
     }
 }
-
-void bt_enter(ccbuff buf) {
-    asm volatile("mov %0, %%ebp\n\t"
-                 "jmp *%1"
-                 : : "g"(CPU.regs), "r"(buf));
-    while(1); /* Satisfy the compiler that we don't return */
-}
-
-#define STRINGIFY(x)  _STRINGIFY(x)
-#define _STRINGIFY(x) #x
-
-asm("\n"
-    "bt_callout:\n\t"
-    "mov %eax, CPU\n\t"
-    "mov bt_stack_base, %eax\n\t"
-    "addl $" STRINGIFY(BT_STACK_SIZE) ", %eax\n\t"
-    "mov %eax, %esp\n\t"
-    "jmp bt_translate_and_run\n");

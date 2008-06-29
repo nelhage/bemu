@@ -14,7 +14,7 @@
 #define XP 30
 
 typedef struct {
-    /* PC *must* be located first */
+    /* This layout is hard-coded into bt.S */
     uint32_t PC;
     uint32_t regs[32];
     bool     halt;
