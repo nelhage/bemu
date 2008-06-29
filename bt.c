@@ -57,7 +57,7 @@ compiled_frag *bt_alloc_cfrag(bool may_clear) {
 compiled_frag *bt_find_frag(byteptr PC) {
     compiled_frag *frag = frag_hash[HASH_PC(PC)];
     while(frag) {
-        if(frag->start_pc = PC) {
+        if(frag->start_pc == PC) {
             return frag;
         }
         frag = frag->hash_next;
