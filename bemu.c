@@ -104,7 +104,7 @@ int main(int argc, char **argv)
         int i;
         printf("[%08x] Done\n", CPU.PC);
         for(i = 0; i < 32; i++) {
-            printf("[%02x] %08x ", i, CPU.regs[i]);
+            printf("[%02d] %08x ", i, CPU.regs[i]);
             if(i % 4 == 3) {
                 printf("\n");
             }
