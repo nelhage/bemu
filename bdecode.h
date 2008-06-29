@@ -82,8 +82,21 @@ typedef struct {
 #define OP_IMM(op)   ((op) & 0x10)
 #define OP_CLASS(op) ((op) >> 4)
 
-void decode_op(uint32_t instr, bdecode *decode);
+static inline void decode_op(uint32_t instr, bdecode *decode)
+    __attribute__ ((always_inline));
 bool decode_valid(bdecode *decode);
 char *pp_decode(bdecode *decode);
+
+/*
+ * Decode a 32-bit \Beta opcode into a bdecode struct
+ */
+void decode_op(uint32_t op, bdecode *decode)
+{
+    decode->opcode = BOP_OP(op);
+    decode->ra     = BOP_RA(op);
+    decode->rb     = BOP_RB(op);
+    decode->rc     = BOP_RC(op);
+    decode->imm    = (int32_t)BOP_CONST(op);
+}
 
 #endif

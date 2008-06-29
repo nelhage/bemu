@@ -464,7 +464,7 @@ void bt_translate_and_run() {
         if(cfrag) {
             bt_enter(cfrag->code);
         } else {
-            bcpu_step_one();
+            bcpu_execute_one(&frag.insts[0]);
             if(CPU.halt) {
                 longjmp(bt_exit_buf, 1);
             }
