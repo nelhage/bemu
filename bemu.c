@@ -36,10 +36,12 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void panic(char *fmt, ...)
+void __panic(char *file, int line, char *fmt, ...)
 {
     va_list ap;
 
+    fprintf(stderr, "PANIC[%s:%d]: ", file, line);
+    
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
