@@ -62,7 +62,7 @@ void bcpu_execute_one(bdecode *decode) {
  * JMP and friends cannot raise the privilege level by
  * setting the supervisor bit
  */
-#define JMP(newpc) ((newpc) & (0x7FFFFFFF | (CPU.PC & 0x80000000)))
+#define JMP(newpc) ((newpc) & (0x7FFFFFFC | (CPU.PC & 0x80000000)))
     case OP_JMP:
         old_pc = CPU.PC;
         CPU.PC = JMP(CPU.regs[decode->ra]);
