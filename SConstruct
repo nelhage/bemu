@@ -8,7 +8,8 @@ env.Command('opcodes.h','insts.pl', 'perl $SOURCE > $TARGET')
 
 bemu = env.Program('bemu', ['bemu.c', 'bcpu.c',
                             'bdecode.c', 'bt.c',
-                            'bt_helper.S', 'bclock.c'])
+                            'bt_helper.S', 'bclock.c',
+                            'bconsole.c'])
 Default(bemu)
 
 tags = env.Command('TAGS', '', 'etags *.[ch]')

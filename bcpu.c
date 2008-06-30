@@ -121,8 +121,20 @@ void bcpu_execute_one(bdecode *decode) {
         write_reg(decode->rc, beta_read_mem32(CPU.PC + WORD2BYTEADDR(decode->imm)));
         break;
 
-    case OP_HALT:
-        CPU.halt = 1;
+    case OP_CALLOUT:
+        switch(decode->imm) {
+        case CALL_HALT:
+            CPU.halt = 1;
+            break;
+        case CALL_RDCHR:
+            break;
+        case CALL_WRCHR:
+            beta_wrchr(CPU.regs[0]);
+            break;
+        default:
+            /* Treat an unknown callout as a NOP */
+            break;
+        }
         break;
 
     default:

@@ -444,7 +444,7 @@ void bt_translate_and_run() {
                 inst = beta_read_mem32(pc);
                 decode_op(inst, &frag.insts[i]);
                 if(!bt_can_translate(&frag.insts[i])) {
-                    if(frag.insts[i].opcode != OP_HALT) {
+                    if(frag.insts[i].opcode != OP_CALLOUT) {
                         frag.tail = TRUE;
                     }
                     break;

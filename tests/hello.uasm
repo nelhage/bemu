@@ -1,0 +1,16 @@
+.include beta.uasm
+
+. = 0
+        CMOVE('H', R0)
+        WRCHAR()
+        CMOVE('e', R0)
+        WRCHAR()
+        CMOVE('l', R0)
+        WRCHAR()
+        CMOVE('l', R0)
+        WRCHAR()
+        CMOVE('o', R0)
+        WRCHAR()
+        CMOVE(10, R0)
+        WRCHAR()
+        HALT()

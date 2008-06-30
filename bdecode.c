@@ -18,7 +18,7 @@ static bool op_valid_table[64] = {
     [OP_BT]  1, [OP_BF] 1,
     [OP_LD]  1, [OP_ST] 1,
     [OP_LDR] 1,
-    [OP_HALT] 1
+    [OP_CALLOUT] 1
 };
 
 bool decode_valid(bdecode *decode)
@@ -63,7 +63,7 @@ char *op_name(beta_op op)
         CASE(OP_LD);
         CASE(OP_ST);
         CASE(OP_LDR);
-        CASE(OP_HALT);
+        CASE(OP_CALLOUT);
     default:
         snprintf(opbuf, sizeof opbuf - 1, "ILLOP(%02x)", op);
         return opbuf;
