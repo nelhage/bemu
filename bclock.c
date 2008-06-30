@@ -8,7 +8,6 @@ static timer_t beta_timer;
 
 static void clock_tick(int signal) {
     set_interrupt(INT_CLK);
-    LOG("Tick!");
 }
 
 void start_clock(void) {

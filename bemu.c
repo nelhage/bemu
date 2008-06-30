@@ -52,6 +52,7 @@ struct {
     bool do_time;
     bool do_dump;
     bool enable_clock;
+    bool kbd_interrupt;
     char *filename;
 } cpu_options;
 
@@ -59,16 +60,21 @@ void handle_flags(char *optval) {
     int len;
     char *comma;
 
-    while(*optval) {
+    while(1) {
         comma = (char*)strchrnul(optval, ',');
         len = comma - optval;
         if(!strncmp(optval, "clock", len)) {
             cpu_options.enable_clock = 1;
+        } else if(!strncmp(optval, "tty", len)) {
+            cpu_options.kbd_interrupt = 1;
         } else {
             fprintf(stderr, "Bad option spec: %s\n", optval);
             usage();
         }
-        optval = comma;
+        if(!*comma) {
+            break;
+        }
+        optval = comma + 1;
     }
 }
 
@@ -131,6 +137,8 @@ int main(int argc, char **argv)
         start_clock();
     }
 
+    console_open(cpu_options.kbd_interrupt);
+
     gettimeofday(&start, NULL);
     if(cpu_options.emulate) {
         while(!CPU.halt) {
@@ -156,6 +164,8 @@ int main(int argc, char **argv)
             }
         }
     }
+
+    console_close();
 
     munmap(beta_mem, stat.st_size);
 
