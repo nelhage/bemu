@@ -1,17 +1,18 @@
-#!/bin/sh
+#!/bin/bash
 BEMU=./bemu
+OPTIONS=""
 
 run_one() {
     file="$1"
 
-    bt_run=$($BEMU "tests/$file.bin" -d 2>&1)
-    err=$!
+    bt_run=$($BEMU "tests/$file.bin" -o "$OPTIONS" -d 2>&1)
+    err="$?"
     if [ "$err" -ne 0 ]; then
         echo "[$file] FAIL: return code $err" >&2
         echo "$bt_run";
         exit 1;
     fi 
-    em_run=$($BEMU "tests/$file.bin" -de 2>&1)
+    em_run=$($BEMU "tests/$file.bin" -o "$OPTIONS" -de 2>&1)
 
     shift
     while [ $# -gt 0 ]; do
@@ -43,3 +44,7 @@ run_one bench3   "[80000c38] Done" "[28] 80000c3c [29] 00000000 [30] 00000000 [3
 run_one bench4   "[00] 991727a0 [01] 5096a491 [02] 00000000 [03] 00000000"
 run_one supervisor "[00] ffffabcd"
 run_one align    "[00] ffffabcd"
+
+ulimit -t 2
+OPTIONS="clock"
+run_one timer    "[00000034] Done"
