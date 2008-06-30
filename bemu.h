@@ -15,7 +15,7 @@
 #include "bcpu.h"
 #include "x86.h"
 #include "bt.h"
-
+#include "bclock.h"
 
 #ifdef DEBUG
 #define LOG(fmt, ...) printf("%s:%d: " fmt "\n", __FILE__, __LINE__, ## __VA_ARGS__)

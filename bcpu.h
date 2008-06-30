@@ -7,9 +7,17 @@
 #define PC_SUPERVISOR   0x80000000
 #define ISR_RESET       (PC_SUPERVISOR | 0x00000000)
 #define ISR_ILLOP       (PC_SUPERVISOR | 0x00000004)
-#define ISR_CLOCK       (PC_SUPERVISOR | 0x00000008)
+#define ISR_CLK         (PC_SUPERVISOR | 0x00000008)
 #define ISR_KBD         (PC_SUPERVISOR | 0x0000000C)
 #define ISR_MOUSE       (PC_SUPERVISOR | 0x00000010)
+
+/* Interrupt flags in 'pending_interrupts' */
+#define INT_CLK         0x0001
+#define INT_KBD         0x0002
+#define INT_MOUSE       0x0004
+
+#define set_interrupt(i) ({pending_interrupts |= i;})
+
 
 #define XP 30
 
@@ -22,6 +30,7 @@ typedef struct {
 
 extern beta_cpu CPU;
 extern uint32_t *beta_mem;
+extern uint32_t pending_interrupts;
 
 /*
  * We address memory by words, internally, but the beta uses
@@ -34,7 +43,7 @@ extern uint32_t *beta_mem;
 typedef uint32_t byteptr;
 typedef uint32_t wordptr;
 
-
+void bcpu_process_interrupt();
 void bcpu_execute_one(bdecode *decode);
 void bcpu_reset();
 void bcpu_step_one();

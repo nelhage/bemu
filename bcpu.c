@@ -2,10 +2,31 @@
 
 beta_cpu CPU;
 uint32_t *beta_mem;
+uint32_t pending_interrupts;
 
 inline void write_reg(beta_reg reg, uint32_t val)
 {
     CPU.regs[reg] = val;
+}
+
+void bcpu_process_interrupt() {
+    uint32_t bit = 0;
+    byteptr isr;
+    if(pending_interrupts & INT_CLK) {
+        bit = INT_CLK;
+        isr = ISR_CLK;
+    } else if(pending_interrupts & INT_KBD) {
+        bit = INT_KBD;
+        isr = ISR_KBD;
+    } else if(pending_interrupts & INT_MOUSE) {
+        bit = INT_MOUSE;
+        isr = ISR_MOUSE;
+    }
+    if(bit) {
+        pending_interrupts &= ~bit;
+        CPU.regs[XP] = CPU.PC + 4;
+        CPU.PC = isr;
+    }
 }
 
 void bcpu_execute_one(bdecode *decode) {
@@ -108,6 +129,10 @@ void bcpu_execute_one(bdecode *decode) {
         CPU.regs[XP] = CPU.PC;
         CPU.PC = ISR_ILLOP;
         break;
+    }
+
+    if(pending_interrupts && !(CPU.PC & PC_SUPERVISOR)) {
+        bcpu_process_interrupt();
     }
 }
 

@@ -2,6 +2,9 @@
 #include <unistd.h>
 #include <getopt.h>
 
+#define _GNU_SOURCE
+#include <string.h>
+
 #include <time.h>
 
 /* Subtract the `struct timeval' values X and Y,
@@ -32,40 +35,79 @@ timeval_subtract (result, x, y)
   return x->tv_sec < y->tv_sec;
 }
 
+void usage() {
+    printf("Usage: bemu [OPTIONS] file.bin\n");
+    printf("   Options:\n");
+    printf("     -e         Emulate; Do not perform binary translation\n");
+    printf("     -t         Time program execution\n");
+    printf("     -d         Dump CPU state at HALT()\n");
+    printf("     -o OPTS    Set CPU options\n");
+    printf("\n");
+    printf(" Options for -o include: clock\n");
+    exit(1);
+}
+
+struct {
+    bool emulate;
+    bool do_time;
+    bool do_dump;
+    bool enable_clock;
+    char *filename;
+} cpu_options;
+
+void handle_flags(char *optval) {
+    int len;
+    char *comma;
+
+    while(*optval) {
+        comma = (char*)strchrnul(optval, ',');
+        len = comma - optval;
+        if(!strncmp(optval, "clock", len)) {
+            cpu_options.enable_clock = 1;
+        } else {
+            fprintf(stderr, "Bad option spec: %s\n", optval);
+            usage();
+        }
+        optval = comma;
+    }
+}
+
+void handle_options(int argc, char **argv) {
+    int arg;
+    while((arg = getopt(argc, argv, "deto:")) > 0) {
+        switch(arg) {
+        case 'd':
+            cpu_options.do_dump = 1;
+            break;
+        case 't':
+            cpu_options.do_time = 1;
+            break;
+        case 'e':
+            cpu_options.emulate = 1;
+            break;
+        case 'o':
+            handle_flags(optarg);
+            break;
+        default:
+            usage();
+        }
+    }
+    if(optind < argc) {
+        cpu_options.filename = argv[optind];
+    } else {
+        usage();
+    }
+}
 
 int main(int argc, char **argv)
 {
     int fd;
-    int arg;
     struct stat stat;
     struct timeval start, end, delta;
-    char *filename;
-    bool emulate = 0;
-    bool do_time = 0;
-    bool dump = 0;
 
-    if(argc < 2) {
-        printf("Usage: %s <file.bin>\n", argv[0]);
-        exit(-1);
-    }
+    handle_options(argc, argv);
 
-    while((arg = getopt(argc, argv, "det")) > 0) {
-        switch(arg) {
-        case 'd':
-            dump = 1;
-            break;
-        case 't':
-            do_time = 1;
-            break;
-        case 'e':
-            emulate = 1;
-            break;
-        }
-    }
-
-    filename = argv[optind];
-
-    fd = open(filename, O_RDWR);
+    fd = open(cpu_options.filename, O_RDWR);
     if(fd < 0) {
         perror("open");
         exit(-1);
@@ -85,8 +127,12 @@ int main(int argc, char **argv)
 
     bcpu_reset();
 
+    if(cpu_options.enable_clock) {
+        start_clock();
+    }
+
     gettimeofday(&start, NULL);
-    if(emulate) {
+    if(cpu_options.emulate) {
         while(!CPU.halt) {
             bcpu_step_one();
         }
@@ -95,12 +141,12 @@ int main(int argc, char **argv)
     }
     gettimeofday(&end, NULL);
 
-    if(do_time) {
+    if(cpu_options.do_time) {
         timeval_subtract(&delta, &end, &start);
         printf("Executed in %ds.%dus\n", delta.tv_sec, delta.tv_usec);
     }
 
-    if(dump) {
+    if(cpu_options.do_dump) {
         int i;
         printf("[%08x] Done\n", CPU.PC);
         for(i = 0; i < 32; i++) {
