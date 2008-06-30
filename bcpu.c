@@ -127,6 +127,7 @@ void bcpu_execute_one(bdecode *decode) {
             CPU.halt = 1;
             break;
         case CALL_RDCHR:
+            CPU.regs[0] = beta_rdchr();
             break;
         case CALL_WRCHR:
             beta_wrchr(CPU.regs[0]);
