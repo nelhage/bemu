@@ -43,7 +43,7 @@ void usage() {
     printf("     -d         Dump CPU state at HALT()\n");
     printf("     -o OPTS    Set CPU options\n");
     printf("\n");
-    printf(" Options for -o include: clock\n");
+    printf(" Valid options for -o are: clock, tty\n");
     exit(1);
 }
 
