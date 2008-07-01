@@ -6,8 +6,11 @@
 #include <poll.h>
 #include <signal.h>
 
-static struct termios saved_termios;
+static pthread_cond_t console_cond;
+static pthread_mutex_t console_mutex;
 static pthread_t console_thread;
+
+static struct termios saved_termios;
 static int kbd_char;
 
 void* console_process(void *arg) {
@@ -24,8 +27,11 @@ void* console_process(void *arg) {
             panic("Poll returned error: %s\n", strerror(errno));
         }
         LOG("Keyboard interrupt!\n");
+        pthread_mutex_lock(&console_mutex);
         set_interrupt(INT_KBD);
         read(0, &kbd_char, 1);
+        pthread_cond_wait(&console_cond, &console_mutex);
+        pthread_mutex_unlock(&console_mutex);
     }
     return NULL;
 }
@@ -57,6 +63,12 @@ void console_open(bool interrupt) {
 
     if(interrupt) {
         LOG("Creating keyboard processing thread...");
+        if(pthread_mutex_init(&console_mutex, NULL) < 0) {
+            panic("Can't create console mutex: %s", strerror(errno));
+        }
+        if(pthread_cond_init(&console_cond, NULL) < 0) {
+            panic("Can't create console condition var: %s", strerror(errno));
+        }
         if(pthread_create(&console_thread, NULL,
                           console_process, NULL) < 0) {
             panic("Can't pthread_create: %s", strerror(errno));
@@ -74,8 +86,13 @@ void beta_wrchr(int chr) {
 }
 
 int beta_rdchr() {
-    int c = kbd_char;
+    int c;
+
+    pthread_mutex_lock(&console_mutex);
+    c = kbd_char;
     kbd_char = 0;
+    pthread_mutex_unlock(&console_mutex);
+    pthread_cond_signal(&console_cond);
     return c;
 }
 
