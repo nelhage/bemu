@@ -1,7 +1,7 @@
-env = Environment(CFLAGS = '-O2', CCPATH = '.', LIBS = '-lrt')
+env = Environment(CFLAGS = '-O0 -g', CCPATH = '.', LIBS = '-lrt')
 debug = ARGUMENTS.get('debug', 0)
 if(debug):
-    env.Append(CFLAGS = ' -g -DDEBUG')
+    env.Append(CFLAGS = ' -DDEBUG')
 
 env.Program('x86-test.c')
 env.Command('opcodes.h','insts.pl', 'perl $SOURCE > $TARGET')
