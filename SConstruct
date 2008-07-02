@@ -6,7 +6,7 @@ uasm = Builder(action = 'uasm/uasm $SOURCE',
                src_suffix = '.uasm',
                emitter = dep_uasm)
 
-env = Environment(CFLAGS = '-O0 -g', CCPATH = '.')
+env = Environment(CFLAGS = '-O0 -g -m32', CCPATH = '.')
 env.Append(BUILDERS = {'UAsm': uasm})
 
 debug = ARGUMENTS.get('debug', 0)
