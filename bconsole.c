@@ -91,6 +91,7 @@ int beta_rdchr() {
     pthread_mutex_lock(&console_mutex);
     c = kbd_char;
     kbd_char = 0;
+    clear_interrupt(INT_KBD);
     pthread_mutex_unlock(&console_mutex);
     pthread_cond_signal(&console_cond);
     return c;

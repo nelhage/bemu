@@ -16,7 +16,8 @@
 #define INT_KBD         0x0002
 #define INT_MOUSE       0x0004
 
-#define set_interrupt(i) ({pending_interrupts |= i;})
+#define set_interrupt(i)   ({pending_interrupts |= i;})
+#define clear_interrupt(i) ({pending_interrupts &= ~i;})
 
 
 #define XP 30

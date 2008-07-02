@@ -10,20 +10,14 @@ inline void write_reg(beta_reg reg, uint32_t val)
 }
 
 void bcpu_process_interrupt() {
-    uint32_t bit = 0;
-    byteptr isr;
+    byteptr  isr = 0;
     if(pending_interrupts & INT_CLK) {
-        bit = INT_CLK;
+        clear_interrupt(INT_CLK);
         isr = ISR_CLK;
     } else if(pending_interrupts & INT_KBD) {
-        bit = INT_KBD;
         isr = ISR_KBD;
-    } else if(pending_interrupts & INT_MOUSE) {
-        bit = INT_MOUSE;
-        isr = ISR_MOUSE;
     }
-    if(bit) {
-        pending_interrupts &= ~bit;
+    if(isr) {
         CPU.regs[XP] = CPU.PC + 4;
         CPU.PC = isr;
     }
