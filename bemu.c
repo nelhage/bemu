@@ -177,10 +177,12 @@ void __panic(char *file, int line, char *fmt, ...)
     va_list ap;
 
     fprintf(stderr, "PANIC[%s:%d]: ", file, line);
-    
+
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
+
+    fprintf(stderr, "\n");
 
     exit(-1);
 }
