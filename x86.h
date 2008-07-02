@@ -102,6 +102,10 @@ typedef enum {
 #define X86_DISP32 X86_4BYTE
 #define X86_IMM8   X86_BYTE
 #define X86_DISP8  X86_BYTE
+#define X86_REL32(buf, label) {                                 \
+        X86_IMM32(buf, (uint8_t*)label - ((ccbuff)buf+4));      \
+    }
+
 #define X86_SIB(ptr, scale, index, base) ({     \
             X86_BYTE(ptr, SIB(scale, index, base));     \
         });

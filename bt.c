@@ -12,11 +12,14 @@ static uint8_t *frag_cache = NULL;
 static uint8_t *frag_alloc;
 static compiled_frag *frag_hash[256];
 
+/* bt_helper.S */
 extern void bt_enter(ccbuff buf) __attribute__((noreturn));
+extern void bt_callout(void);
+extern void bt_interrupt(void);
 extern void bt_start() __attribute__((noreturn));
+
 void bt_translate_and_run(void) __attribute__((noreturn, used));
 static void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag);
-extern void bt_callout(void);
 
 /*
  * Allocate a compiled_frag out of the frag_cache
@@ -296,6 +299,17 @@ inline ccbuff bt_translate_inst(ccbuff buf, byteptr pc, bdecode *inst) {
     }
 }
 
+inline ccbuff bt_translate_prologue(ccbuff buf, byteptr pc) {
+    if(!(pc & PC_SUPERVISOR)) {
+        X86_TEST_IMM32_RM32(buf, MOD_INDIR, REG_DISP32);
+        X86_DISP32(buf, &pending_interrupts);
+        X86_IMM32(buf, 0xFFFFFFFF);
+        X86_JCC_REL32(buf, CC_NZ);
+        X86_REL32(buf, bt_interrupt);
+    }
+    return buf;
+}
+
 inline ccbuff bt_translate_tail(ccbuff buf, byteptr pc, bdecode *inst) {
 #define SAVE_PC                                                 \
     if(inst->rc != 31) {                                        \
@@ -358,13 +372,17 @@ inline ccbuff bt_translate_tail(ccbuff buf, byteptr pc, bdecode *inst) {
 }
 
 void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
+    ccbuff buf = cfrag->code;
+    byteptr pc = frag->start_pc;
+    int i;
+
     LOG("Translating %d instruction%s at 0x%08x",
         frag->ninsts, (frag->tail?" (plus tail)" : ""), frag->start_pc);
 
-    ccbuff buf = cfrag->code;
-    byteptr pc = frag->start_pc;
     cfrag->start_pc = frag->start_pc;
-    int i;
+
+    buf = bt_translate_prologue(buf, pc);
+
     for(i = 0; i < frag->ninsts; i++) {
         buf = bt_translate_inst(buf, pc, &frag->insts[i]);
         pc += 4;
@@ -380,7 +398,7 @@ void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
         X86_IMM32(buf, pc);
     }
     X86_JMP_REL32(buf);
-    X86_IMM32(buf, ((uint8_t*)bt_callout - (buf + 4)));
+    X86_REL32(buf, bt_callout);
 }
 
 void bt_run() {
