@@ -68,6 +68,7 @@ typedef int size_t;
 #endif
 
 #include <string.h>
+#include <unistd.h>
 
 #ifndef vax
 #define htonl(x) (x)
@@ -976,6 +977,8 @@ main(argc,argv)
   char *argv[];
   {	register int i;
 	char filename[100];
+        char cwd[256];
+        char *dir, *slash;
         char *dot;
 	FILE *f;
 
@@ -1007,6 +1010,15 @@ main(argc,argv)
 	  exit(-1);
 	}
 
+        /* Hack; chdir to the same directory while processing */
+        getcwd(cwd, 256);
+        dir = strdup(filename);
+        if ((slash = strrchr(dir, '/')) != NULL) {
+            *slash = 0;
+            chdir(dir);
+        }
+        
+
 	/* initialize hash table */
 	for (i = 0; i < HASHSIZE; i += 1) hashtbl[i] = NULL;
 	hashtbl[hash(Dot.name)] = &Dot;
@@ -1024,6 +1036,9 @@ main(argc,argv)
 	  scan();
 	}
 	fclose(f);
+
+        /* Restore original WD for writing output */
+        chdir(cwd);
 
 	/* write rom contents */
 	if (errfile) {
