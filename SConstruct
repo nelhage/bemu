@@ -29,7 +29,7 @@ AlwaysBuild(env.Command('TAGS', '', 'etags *.[ch]'))
 env.Program('uasm/uasm.c')
 
 tests = ['align', 'bench1', 'bench2', 'bench3', 'bench4',
-         'sancheck', 'supervisor', 'timer', 'litmus']
+         'sancheck', 'supervisor', 'timer', 'litmus', 'qsort']
 test_targets = []
 for t in tests:
     test_targets.append(env.UAsm('tests/' + t + '.uasm'))

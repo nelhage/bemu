@@ -1,0 +1,271 @@
+.include beta.uasm
+
+        .macro PROLOGUE() {PUSH(LP) PUSH(BP) MOVE(SP, BP)}
+        .macro EPILOGUE() {MOVE(SP, BP) POP(BP) POP(LP) RTN()}
+        arg0 = -0x0C
+        arg1 = -0x10
+        arg2 = -0x14
+        arg3 = -0x18
+
+        || qsort a large array for performance testing
+
+. = 0
+        BR(start)               | Reset
+        HALT()                  | Illop
+        HALT()                  | Clock
+
+start:
+        CMOVE(stack, SP)
+        CALL(qsort)
+        CALL(check)
+        BF(R0, done)
+
+        CMOVE(0x1111, R0)
+done:
+        HALT()
+
+qsort:
+        PROLOGUE()
+        PUSH(R0)
+
+        CMOVE(arrayend-4, R0)
+        PUSH(R0)                |right
+        CMOVE(array, R0)
+        PUSH(R0)                | left
+        CALL(qsort_helper)
+        DEALLOCATE(2)
+
+        POP(R0)
+        EPILOGUE()
+
+qsort_helper:
+        PROLOGUE()
+        PUSH(R0)
+        PUSH(R1)
+        PUSH(R2)
+        PUSH(R3)
+        PUSH(R4)
+
+        || R0 is scratch (comparisons, etc)
+        || R1 is left
+        || R2 is right
+        || R3 is pivot
+        || R4 is scratch
+
+        GETFRAME(arg0, R1)
+        GETFRAME(arg1, R2)
+
+        CMPLE(R2, R1, R0)      | if right >= left, stop
+        BT(R0, qsort_done)
+
+        || pivot = *left
+        LD(R1, 0, R3)
+
+        || Swap pivot (*left) and *right
+        LD(R2, 0, R4)
+        ST(R3, 0, R2)
+        ST(R4, 0, R1)
+
+qsort_loop:
+
+        || while ((*left) < pivot && left < right) left++
+left_loop:
+        LD(R1, 0, R0)
+        CMPLT(R0, R3, R0)
+        BF(R0, left_loop_done)
+        CMPLT(R1, R2, R0)
+        BF(R0, left_loop_done)
+        ADDC(R1, 4, R1)
+        BR(left_loop)
+left_loop_done:
+
+        || while ((*right) >= pivot && left < right) right--;
+right_loop:
+        LD(R2, 0, R0)
+        CMPLT(R0, R3, R0)
+        BT(R0, right_loop_done)
+        CMPLT(R1, R2, R0)
+        BF(R0, right_loop_done)
+        SUBC(R2, 4, R2)
+        BR(right_loop)
+right_loop_done:
+
+        || Swap *left and *right
+        LD(R1, 0, R0)
+        LD(R2, 0, R4)
+        ST(R0, 0, R2)
+        ST(R4, 0, R1)
+
+        CMPEQ(R1, R2, R0)
+        BF(R0, qsort_loop)
+
+        || Done
+        || Load the original right into R2
+        GETFRAME(arg1, R2)
+        || Swap *left and *right
+        LD(R1, 0, R0)
+        LD(R2, 0, R4)
+        ST(R0, 0, R2)
+        ST(R4, 0, R1)
+
+        || Recurse
+        || First, (l, left)
+        GETFRAME(arg0, R0)
+        PUSH(R1)
+        PUSH(R0)
+        CALL(qsort_helper)
+        DEALLOCATE(2)
+        || (l+1, right)
+        ADDC(R1, 4, R1)
+        PUSH(R2)
+        PUSH(R1)
+        CALL(qsort_helper)
+        DEALLOCATE(2)
+
+qsort_done:
+        POP(R4)
+        POP(R3)
+        POP(R2)
+        POP(R1)
+        POP(R0)
+        EPILOGUE()
+
+check:
+        PROLOGUE()
+        PUSH(R1)
+        PUSH(R2)
+        PUSH(R3)
+
+        CMOVE(array, R1)
+        LD(R1, 0, R2)
+
+check_loop:
+        ADDC(R1, 4, R1)
+        CMPEQC(R1, arrayend, R0)
+        BT(R0, check_pass)
+        LD(R1, 0, R3)
+        CMPLT(R2, R3, R0)
+        BF(R0, check_fail)
+        MOVE(R3, R2)
+        BR(check_loop)
+
+check_pass:
+        CMOVE(1, R0)
+        BR(check_done)
+check_fail:
+        CMOVE(0, R0)
+check_done:
+        POP(R3)
+        POP(R2)
+        POP(R1)
+        EPILOGUE()
+
+        ||  Data
+stack:
+        STORAGE(1024)
+
+array:
+    LONG(1873)
+    LONG(22551)
+    LONG(19891)
+    LONG(5952)
+    LONG(230)
+    LONG(11064)
+    LONG(30663)
+    LONG(29402)
+    LONG(14850)
+    LONG(32648)
+    LONG(19463)
+    LONG(21392)
+    LONG(27310)
+    LONG(20679)
+    LONG(23649)
+    LONG(28409)
+    LONG(28858)
+    LONG(4348)
+    LONG(6903)
+    LONG(15888)
+    LONG(9588)
+    LONG(10072)
+    LONG(32466)
+    LONG(17894)
+    LONG(26615)
+    LONG(10939)
+    LONG(19343)
+    LONG(3570)
+    LONG(14641)
+    LONG(19923)
+    LONG(14692)
+    LONG(16514)
+    LONG(9707)
+    LONG(1816)
+    LONG(22466)
+    LONG(9937)
+    LONG(12880)
+    LONG(20362)
+    LONG(6571)
+    LONG(27730)
+    LONG(20242)
+    LONG(26034)
+    LONG(16354)
+    LONG(14784)
+    LONG(13946)
+    LONG(7235)
+    LONG(10425)
+    LONG(10036)
+    LONG(11583)
+    LONG(17328)
+    LONG(25924)
+    LONG(21171)
+    LONG(27400)
+    LONG(25622)
+    LONG(6298)
+    LONG(21247)
+    LONG(3793)
+    LONG(25641)
+    LONG(24817)
+    LONG(18434)
+    LONG(12796)
+    LONG(6742)
+    LONG(2181)
+    LONG(22503)
+    LONG(8558)
+    LONG(24647)
+    LONG(32440)
+    LONG(21438)
+    LONG(12241)
+    LONG(6243)
+    LONG(16400)
+    LONG(32483)
+    LONG(32278)
+    LONG(32754)
+    LONG(14499)
+    LONG(13456)
+    LONG(7222)
+    LONG(24924)
+    LONG(23492)
+    LONG(18805)
+    LONG(9484)
+    LONG(16648)
+    LONG(7209)
+    LONG(4116)
+    LONG(9503)
+    LONG(13507)
+    LONG(25364)
+    LONG(13296)
+    LONG(6380)
+    LONG(17413)
+    LONG(31731)
+    LONG(19176)
+    LONG(24155)
+    LONG(1144)
+    LONG(8912)
+    LONG(32713)
+    LONG(25791)
+    LONG(8584)
+    LONG(21383)
+    LONG(5265)
+
+arrayend:
+
+  nelts = (arrayend - array)/4
