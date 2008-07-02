@@ -67,6 +67,8 @@ typedef int size_t;
 #endif
 #endif
 
+#include <string.h>
+
 #ifndef vax
 #define htonl(x) (x)
 #endif
