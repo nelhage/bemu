@@ -1,0 +1,532 @@
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||| 6.004 Beta Diagnostic Package -- litmus.uasm         3/10/94 SAW |||
+||| Running this program gives modest assurance that all of the      |||
+|||   Beta instructions work after a fashion.		    	     |||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+.include beta.uasm
+
+.macro SVC_HALT()	SVC (0)
+.macro SVC_WrMsg()	SVC (1)
+.macro SVC_WRCHAR()	SVC (2)
+
+| Interrupt vectors:
+
+. = 0
+
+	BR(Start)	| Reset: starting adr.  No enable/disable.
+	BR(IllInst)	| Illegal instruction
+	BR(ClkInt)	| Clock interrupt: periodic
+	BR(BadInt)	| Character ready to be read from console
+
+| Handler for miscellaneous -- unexpected -- interrupt:
+BadInt: CALL(WrMsg)
+	.text "Uh oh, bad interrupt!\n"
+	HALT()		| BAD (Unanticipated) INTERRUPT...
+
+| Handler for clock interrupt: increments r26.
+ClkInt:	ADDC(r26, 1, r26)
+	SUBC (XP, 4, XP)	| Back up PC
+	XRTN()		| Return from clock interrupt
+
+|----------------------------------------------------------------------------
+| Handler for illegal instruction.
+|
+|  This code extracts the OPCODE field from the interrupted instruction
+|  in order to determine which instruction to emulate.  It then uses OpTbl,
+|  a table of illegal instruction handlers, to find the appropriate handler
+|  for the interrupted instruction.
+|
+|  If the handler is found, the code at OpHit jumps to the handler.
+|  If the handler is not found, the code jumps to BadBad, which just halts.
+|
+| Handler is entered with:
+|	XP =	Adr of trapped instr + 4
+|	Stack	containing old <r0>
+|	r0	trashed
+| Handler can return to next instruction, via
+|	(restore R0)
+|	XRTN()
+|----------------------------------------------------------------------------
+IllInst:
+	PUSH(r0)		| Free up some regs.
+	LD(xp, -4, r0)		| r0 <- the interrupted instruction.
+	SHRC(r0, 26-2, r0)	| Get the (OpCode<<2), and
+	ANDC(r0, 0xFC, r0)	|  mask into into r0.
+	LD(r0, OpTbl, r0)	| Address of handler: OpTbl[OpCode]
+	JMP(r0)
+
+| Handle a supervisor call.
+
+hSVC:
+	LD (XP, -4, R0)		| R0 <- the illegal instruction
+	ANDC (R0, 0x03, R0)	| Get SVC code (0-3 supported)
+	MULC (R0, 4, R0)	| Access a longword
+	LD (R0, SVCTbl, R0)	| Get the vector
+	JMP (R0)
+
+| Supervisor call to halt the machine
+K_HALT:
+	HALT()
+
+| Supervisor call to write a message to the console
+
+K_WrMsg:
+	MOVE (XP, R0)
+	PUSH (LP)
+	CALL (WrMsgAux)
+	POP (LP)
+	MOVE (R0, XP)
+	POP (R0)
+	JMP (XP)
+
+| Supervisor call to write a character to the console
+
+K_WRCHAR:
+	POP (R0)
+	WRCHAR ()
+	JMP (XP)
+
+|----------------------------------------------------------------------------
+|  Output a message when an unemulated illegal instruction is executed.
+|----------------------------------------------------------------------------
+BadBad: POP(R0)			| Restore proper R0
+	PUSH(LP)		| push LP
+	CALL (WrMsg)
+	.text "Illegal instruction, you dork!\n"
+	HALT()			| Fatal (unemulated) illegal instruction.
+
+
+| Macro to build an entry to unimplemented instruction dispatch table:
+.macro UUO(where)          LONG(where + PC_SUPERVISOR)
+
+| The SVC dispatch table
+SVCTbl:
+	UUO (K_HALT)	UUO (K_WrMsg)	UUO (K_WRCHAR)	UUO (BadBad)
+
+|----------------------------------------------------------------------------
+| Here's the illegal instruction dispatch table.  
+|  The only emulated instruction (for test purposes) is TEST...
+|----------------------------------------------------------------------------
+OpPtr:  LONG(OpTbl)		| Pointer to base of dispatch table.
+
+|	xxxx00		xxxx01		xxxx10		xxxx11		| xxxx
+OpTbl:	UUO(BadBad)	UUO(hSVC)	UUO(BadBad)	UUO(BadBad)	| 0000
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 0001
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 0010
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 0011
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 0100
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 0101
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 0110
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 0111
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 1000
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 1001
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 1010
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 1011
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 1100
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 1101
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 1110
+	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	UUO(BadBad)	| 1111
+
+
+| Begin the tests.
+| Note that we run in supervisor mode for a while, because the register
+| tests muck with the stack pointer, and an exception with a bad stack
+| pointer is bad news.  (We should probably have a kernel mode
+| stack pointer, but we are lazy.)
+
+Start:
+	LDR(Stack, sp)			| Initialize stack pointer.
+
+	CALL(WrMsg)
+	.text "BETA Diagnostic, 3/11/94 version\n"
+
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||| Register Addressing Tests					     |||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+RegTest:
+	CALL (WrMsg)
+	.text "Registers:"
+
+	LD(Regs1p, r0)			| Set up return to Regs1...
+	ST(r0, RtnLoc)
+	BR(LDRegs)			| Fill regs with zero.
+
+Regs1p:	LONG(.+4+PC_SUPERVISOR)
+Regs1:	CMOVE(30, r0)			| Count <- 30
+	ST(r0,Count)
+	LD(Regs2p, r0)			| Return to Regs2
+	ST(r0, RtnLoc)
+	LD(Number, r0)			| r0 <- interesting number.
+Loop1:	BR(Cycle)
+Regs2p:	LONG(.+4+PC_SUPERVISOR)
+
+Regs2:	LD(Count, r0)			| Count <- Count-1
+	SUBC(r0, 1, r0)
+	ST(r0, Count)
+	BF(r0, Regs3)			| Exit, if Count==0
+	CMOVE('.', r0)
+	WRCHAR()			| Show progress...
+	CMOVE(0,r0)
+	BR(Loop1)			| Else, keep cycling.
+
+Regs3:	LD(Number, r0)			| Should have propagated to r30;
+	CMPEQ(r0, r30, r1)
+	BT(r1, RegsOK)
+
+	LD(Regs4p, r0)
+	ST(r0, RtnLoc)
+	BR(STRegs)
+
+Regs4p:	LONG(.+4+PC_SUPERVISOR)
+	LD(Stack, sp)			| Initialize SP.
+	CALL(WrMsg)
+	.text "Failed\n"
+	HALT()
+
+Number:	LONG(0x12345678)
+Count:	LONG(0)
+
+.macro CYC(N) MOVE(N, N+1)
+Cycle:		CYC(30)	CYC(29)	CYC(28)	CYC(27)	CYC(26)	CYC(25)	CYC(24)
+	CYC(23)	CYC(22)	CYC(21)	CYC(20)	CYC(19)	CYC(18)	CYC(17)	CYC(16)
+	CYC(15)	CYC(14)	CYC(13)	CYC(12)	CYC(11)	CYC(10)	CYC(9)	CYC(8)
+	CYC(7)	CYC(6)	CYC(5)	CYC(4)	CYC(3)	CYC(2)	CYC(1)	CYC(0)
+	MOVE(r31, r0)
+	LD(RtnLoc, r0)
+	JMP(r0)
+
+Regs:
+	LONG(0)	LONG(0)	LONG(0)	LONG(0)
+	LONG(0)	LONG(0)	LONG(0)	LONG(0)
+	LONG(0)	LONG(0)	LONG(0)	LONG(0)
+	LONG(0)	LONG(0)	LONG(0)	LONG(0)
+	LONG(0)	LONG(0)	LONG(0)	LONG(0)
+	LONG(0)	LONG(0)	LONG(0)	LONG(0)
+	LONG(0)	LONG(0)	LONG(0)	LONG(0)
+	LONG(0)	LONG(0)	LONG(0)	LONG(0)
+RtnLoc:	LONG(0)
+
+||| The following two procedures use a very non-standard linkage,
+||| so as to be able to exercise all registers uniformly.  They
+||| each take their return PC from memory location RtnLoc, and
+||| clobber r0 in the process of returning.
+
+||| Save all 32 registers in Regs array: BR(STRegs,lp).
+.macro STREG(N) ST(N,Regs+(4*N))
+STRegs:	STREG(0)	STREG(1)	STREG(2)	STREG(3)
+	STREG(4)	STREG(5)	STREG(6)	STREG(7)
+	STREG(8)	STREG(9)	STREG(10)	STREG(11)
+	STREG(12)	STREG(13)	STREG(14)	STREG(15)
+	STREG(16)	STREG(17)	STREG(18)	STREG(19)
+	STREG(20)	STREG(21)	STREG(22)	STREG(23)
+	STREG(24)	STREG(25)	STREG(26)	STREG(27)
+	STREG(28)	STREG(29)	STREG(30)	STREG(31)
+	LD(RtnLoc, r0)
+	JMP(r0)
+
+||| Load all 32 registers from Regs array: BR(LDRegs,lp)
+.macro LDREG(N) LD(Regs+(4*N),N)
+LDRegs:	LDREG(0)	LDREG(1)	LDREG(2)	LDREG(3)
+	LDREG(4)	LDREG(5)	LDREG(6)	LDREG(7)
+	LDREG(8)	LDREG(9)	LDREG(10)	LDREG(11)
+	LDREG(12)	LDREG(13)	LDREG(14)	LDREG(15)
+	LDREG(16)	LDREG(17)	LDREG(18)	LDREG(19)
+	LDREG(20)	LDREG(21)	LDREG(22)	LDREG(23)
+	LDREG(24)	LDREG(25)	LDREG(26)	LDREG(27)
+	LDREG(28)	LDREG(29)	LDREG(30)	LDREG(31)
+	LD(RtnLoc, r0)
+	JMP(r0)
+
+| Register tests passed, so restore the stack pointer and enter
+| user mode.
+
+RegsOK:
+	LD(Stack, sp)			| Initialize SP.
+
+	LDR (ContP, R0)
+	JMP (R0)			| Enable user mode
+
+ContP:	LONG(.+4)
+
+	CALL(OKMsg)
+
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||| Clock Interrupt Tests					     |||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+	SVC_WrMsg()
+	.text "Clock:"
+
+	CMOVE(0, r26)			| Zero the clock int counter
+
+	CMOVE(48, r1)			| Kill some time...
+ClkLup:	CMOVE ('.', R0)
+	SVC_WRCHAR ()
+	SUBC(r1, 1, r1)
+	BNE(r1, ClkLup)
+
+	MOVE(r26, r0)
+	CALL(HexPrt)
+	SVC_WrMsg()
+	.text " tics\n"
+	BR(OpTest)
+	
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||| Operator tests...						     |||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+.macro Case(A,B,C, OP) {
+	CMOVE(OP,r0)
+	SVC_WRCHAR()
+	LD(.+16, r0)
+	LD(.+16, r1)
+	LD(.+16, r3)
+	BR(.+16)
+	LONG(A)
+	LONG(B)
+	LONG(C) }
+
+
+OpTest:	SVC_WrMsg ()
+	.text "Operators: "
+
+	Case(0x12345678,0x9F089F24,0x12345678+0x9F089F24,'+')
+	ADD(r0,r1,r2)
+	CMPEQ(r2,r3,r4)
+	BT(r4,Op1)
+	SVC_WrMsg()
+	.text "ADD failure: "
+	BR(lp,OpFail)
+	SVC_HALT()			| ADD Failure
+	
+Op1:	Case(0x12345678,0x9F089F24,0x12345678-0x9F089F24,'-')
+	SUB(r0,r1,r2)
+	CMPEQ(r2,r3,r4)
+	BT(r4,Op2)
+	SVC_WrMsg ()
+	.text "SUB failure: "
+	CALL(OpFail)
+	SVC_HALT()			| SUB Failure
+
+Op2:	Case(0x12345678,0x9F089F24,0x12345678*0x9F089F24,'*')
+	MUL(r0,r1,r2)
+	CMPEQ(r2,r3,r4)
+	BT(r4,Op3)
+	SVC_WrMsg ()
+	.text "MUL failure: "
+	CALL(OpFail)
+	SVC_HALT()			| MUL Failure
+
+Op3:	Case(0x12345678,0x9F089F24,0x12001620,'&')
+	AND(r0,r1,r2)
+	CMPEQ(r2,r3,r4)
+	BT(r4,Op4)
+	SVC_WrMsg()
+	.text "AND failure: "
+	CALL(OpFail)
+	SVC_HALT()			| AND Failure
+
+Op4:	Case(0x12345678,0x9F089F24,0x9F3CDF7C,'!')
+	OR(r0,r1,r2)
+	CMPEQ(r2,r3,r4)
+	BT(r4,Op5)
+	SVC_WrMsg()
+	.text "OR failure: "
+	CALL(OpFail)
+	SVC_HALT()			| OR Failure
+
+Op5:	Case(0x12345678,0x9F089F24,0x8D3CC95C,'^')
+	XOR(r0,r1,r2)
+	CMPEQ(r2,r3,r4)
+	BT(r4,Op6)
+	SVC_WrMsg()
+	.text "XOR failure: "
+	CALL(OpFail)
+	SVC_HALT()			| XOR Failure
+
+Op6:	Case(0x12345678,12,0x12345,'>')
+	SRA(r0,r1,r2)
+	CMPEQ(r2,r3,r4)
+	BT(r4,Op7)
+	SVC_WrMsg()
+	.text "SRA failure: "
+	CALL(OpFail)
+	SVC_HALT()			| SRA Failure
+
+Op7:	Case(0x92345678,12,0xFFF92345,'>')
+	SRA(r0,r1,r2)
+	CMPEQ(r2,r3,r4)
+	BT(r4,Op8)
+	SVC_WrMsg()
+	.text "SRA failure: "
+	CALL(OpFail)
+	SVC_HALT()			| SRA Failure
+
+Op8:	CALL(OKMsg)
+	BR(UUOtest)
+
+
+| Aux subroutine to print parameters of a failed operator test:
+OpFail:	CALL(HexPrt)
+	SVC_WrMsg()
+	.text " op "
+	MOVE(r1,r0)
+	CALL(HexPrt)
+	SVC_WrMsg()
+	.text " -> "
+	MOVE(r2,r0)
+	CALL(HexPrt)
+	SVC_WrMsg()
+	.text " != "
+	MOVE(r3,r0)
+	CALL(HexPrt)
+	SVC_WrMsg()
+	.text "\n"
+	RTN()
+
+
+|----------------------------------------------------------------------------
+| Illegal instruction (Trap) test.
+|----------------------------------------------------------------------------
+UUOp = 7	| The unused opcode to try.
+
+UUOtest:
+	SVC_WrMsg()
+	.text "Illegal Instruction test..."
+
+xx:	LD(OpTbl+(UUOp*4), r1)		| Old OpTbl entry
+	CMOVE(UUOTest1, r0)		| Adr of our test handler
+	ST(r0, OpTbl+(UUOp*4))		| Store it into OpTbl.
+
+	betaopc(UUOp, 0, 0, 0)		| Should interrupt.
+
+	ST(r1, OpTbl+(UUOp*4))		| Restore old OpTbl entry.
+
+
+
+UUOfail: 
+	CALL(FailedMsg)
+	SVC_HALT()				| Illegal Inst (SLLC) test failed
+
+UUOTest1:
+	ST(r1, OpTbl+UUOp*4)		| Restore old OpTbl entry.
+	CMOVE(UUOK, xp)
+	XRTN()
+
+UUOK:	CALL(OKMsg)
+	BR(Success)
+
+
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||| Successful finish of tests!					     |||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+Success:
+	SVC_WrMsg()
+	.text "\nAll tests PASSED!\n"
+
+	SVC_HALT()			| Success!
+
+
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||| Hex print procedure: prints longword in R0			     |||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+HexDig:	LONG('0') LONG('1') LONG('2') LONG('3') LONG('4') LONG('5')
+	LONG('6') LONG('7') LONG('8') LONG('9') LONG('A') LONG('B')
+	LONG('C') LONG('D') LONG('E') LONG('F')
+
+HexPrt:	PUSH(r0)		| Saves all regs, incl r0
+	PUSH(r1)
+	PUSH(r2)
+	PUSH(lp)
+
+	CMOVE(8, r2)
+	MOVE(r0,r1)
+HexPr1:	SRAC(r1,28,r0)			| Extract digit into r0.
+	MULC(r1, 16, r1)		| Next loop, next nybble...
+	ANDC(r0, 0xF, r0)
+	MULC(r0, 4, r0)
+	LD(r0, HexDig, r0)
+	SVC_WRCHAR ()
+	SUBC(r2,1,r2)
+	BNE(r2,HexPr1)
+
+	POP(lp)
+	POP(r2)
+	POP(r1)
+	POP(r0)
+	RTN()
+
+
+| Auxiliary routine for sending a message to the console.
+| On entry, R0 should point to data; on return, R0 holds next
+| longword aligned location after data.
+| Note: Must be called while in supervisor mode.
+
+WrMsgAux:
+	PUSH(r1)
+	PUSH(r2)
+	PUSH(r3)
+	PUSH(r4)
+
+	MOVE (R0, R1)
+
+WrWord:	LD (R1, 0, R2)		| Fetch a 4-byte word into R2
+	ADDC (R1, 4, R1)	| Increment word pointer
+	CMOVE(4,r3)		| Byte/word counter
+
+WrByte:	ANDC(r2, 0x7F, r0)	| Grab next byte -- LOW end first!
+	BEQ(r0, WrEnd)		| Zero byte means end of text.
+	WRCHAR()		| Print it.
+	SRAC(r2,8,r2)		| Shift out this byte
+	SUBC(r3,1,r3)		| Count down... done with this word?
+	BNE(r3,WrByte)		| Nope, continue.
+	BR(WrWord)		| Yup, on to next.
+	
+
+WrEnd:
+	MOVE (R1, R0)
+	POP(r4)
+	POP(r3)
+	POP(r2)
+	POP(r1)
+	RTN()
+
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||| Procedure to print out a zero-terminated message, packed one     |||
+|||    char/byte. Char data follows branch; returns to next 4-byte   |||
+|||    aligned location. Saves all regs.			     |||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+WrMsg:
+	PUSH (R0)
+	LDR (PC_MaskP, R0)
+	AND (LP, R0, R0)
+	CALL (WrMsgAux)
+	LDR (PC_SupervisorP, LP)
+	OR (LP, R0, LP)
+	POP (R0)
+	RTN()
+
+
+OKMsg:	SVC_WrMsg()
+	.text " OK.\n"
+	RTN()
+
+FailedMsg:
+	SVC_WrMsg()
+	.text " *** FAILED ***\n"
+	RTN()
+
+
+PC_MaskP: LONG (PC_MASK)
+PC_SupervisorP: LONG (PC_SUPERVISOR)
+
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+||| Stack area: remainder of DRAM devoted to stack.		     |||
+||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+Stack:	LONG(.+4)
+

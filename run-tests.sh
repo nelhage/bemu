@@ -39,6 +39,9 @@ run_one() {
 }
 
 run_one sancheck "[00] 800003b8 [01] 00000718 [02] 00000718 [03] 00000718"
+OPTIONS=clock
+run_one litmus   'All tests PASSED!'
+OPTIONS=
 run_one bench1   "[00] 00000001 [01] 00000367 [02] 00000001 [03] 00000367"
 run_one bench2   "[80000048] Done" "[00] 00000001 [01] 00000000 [02] 00000000 [03] 00000000"
 run_one bench3   "[80000c38] Done" "[28] 80000c3c [29] 00000000 [30] 00000000 [31] 00000000"
