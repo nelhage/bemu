@@ -6,7 +6,7 @@ uasm = Builder(action = 'uasm/uasm $SOURCE',
                src_suffix = '.uasm',
                emitter = dep_uasm)
 
-env = Environment(CFLAGS = '-O0 -g -m32',
+env = Environment(CFLAGS = '-O2 -g -m32',
                   CCPATH = '.',
                   ASPPFLAGS='-m32',
                   LINKFLAGS='-m32')
