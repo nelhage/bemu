@@ -1,6 +1,7 @@
 #!/bin/bash
 BEMU=./bemu
 OPTIONS=""
+NONDET=0        # Set for tests that are nondeterministic
 
 run_one() {
     file="$1"
@@ -25,7 +26,7 @@ run_one() {
         fi
     done
 
-    if [ "$bt_run" != "$em_run" ]; then
+    if [ -z "$NONDET" -a "$bt_run" != "$em_run" ]; then
         echo "[$file] FAIL: BT and emulation mismatch" >&2
         echo "[BT result]"
         echo "$bt_run"
@@ -47,4 +48,5 @@ run_one align    "[00] ffffabcd"
 
 ulimit -t 2
 OPTIONS="clock"
+NONDET=1
 run_one timer    "[00000034] Done"
