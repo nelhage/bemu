@@ -97,7 +97,8 @@ void bt_insert_frag(compiled_frag *frag) {
     }                                                                   \
         });
 
-inline ccbuff bt_translate_arith(ccbuff buf, byteptr pc, bdecode *inst) {
+inline void bt_translate_arith(ccbuff *pbuf, byteptr pc, bdecode *inst) {
+    ccbuff buf = *pbuf;
     /* Load %eax with RA, the LHS */
     LOAD_BETA_REG(buf, inst->ra, REG_EAX);
     /* Load %ecx with RB, the RHS */
@@ -152,11 +153,12 @@ inline ccbuff bt_translate_arith(ccbuff buf, byteptr pc, bdecode *inst) {
     }
     /* Load %eax into RC */
     WRITE_BETA_REG(buf, REG_EAX, inst->rc);
-    return buf;
+    *pbuf = buf;
 }
 
 
-inline ccbuff bt_translate_arithc(ccbuff buf, byteptr pc, bdecode *inst) {
+inline void bt_translate_arithc(ccbuff *pbuf, byteptr pc, bdecode *inst) {
+    ccbuff buf = *pbuf;
     uint32_t constant = inst->imm;
     /* Load %eax with RA, the LHS */
     if(inst->ra == 31) {
@@ -227,10 +229,11 @@ inline ccbuff bt_translate_arithc(ccbuff buf, byteptr pc, bdecode *inst) {
     }
     /* Load %eax into RC */
     WRITE_BETA_REG(buf, REG_EAX, inst->rc);
-    return buf;
+    *pbuf = buf;
 }
 
-ccbuff bt_translate_other(ccbuff buf, byteptr pc, bdecode *inst) {
+inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
+    ccbuff buf = *pbuf;
     switch(inst->opcode) {
     case OP_ST:
         /* mov regs[RA], %eax
@@ -285,21 +288,26 @@ ccbuff bt_translate_other(ccbuff buf, byteptr pc, bdecode *inst) {
     default:
         panic("Unable to translate opcode: 0x%02x\n", inst->opcode);
     }
-    return buf;
+    *pbuf = buf;
 }
 
-inline ccbuff bt_translate_inst(ccbuff buf, byteptr pc, bdecode *inst) {
+inline void bt_translate_inst(ccbuff *pbuf, byteptr pc, bdecode *inst) {
     switch(OP_CLASS(inst->opcode)) {
     case CLASS_ARITH:
-        return bt_translate_arith(buf, pc, inst);
+        bt_translate_arith(pbuf, pc, inst);
+        break;
     case CLASS_ARITHC:
-        return bt_translate_arithc(buf, pc, inst);
+        bt_translate_arithc(pbuf, pc, inst);
+        break;
     default:
-        return bt_translate_other(buf, pc, inst);
+        bt_translate_other(pbuf, pc, inst);
+        break;
     }
+    return;
 }
 
-inline ccbuff bt_translate_prologue(ccbuff buf, byteptr pc) {
+inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
+    ccbuff buf = *pbuf;
     if(!(pc & PC_SUPERVISOR)) {
         X86_TEST_IMM32_RM32(buf, MOD_INDIR, REG_DISP32);
         X86_DISP32(buf, &pending_interrupts);
@@ -307,10 +315,11 @@ inline ccbuff bt_translate_prologue(ccbuff buf, byteptr pc) {
         X86_JCC_REL32(buf, CC_NZ);
         X86_REL32(buf, bt_interrupt);
     }
-    return buf;
+    *pbuf = buf;
 }
 
-inline ccbuff bt_translate_tail(ccbuff buf, byteptr pc, bdecode *inst) {
+inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
+    ccbuff buf = *pbuf;
 #define SAVE_PC                                                 \
     if(inst->rc != 31) {                                        \
         X86_MOV_IMM32_RM32(buf, MOD_INDIR_DISP8, REG_EBP);      \
@@ -368,7 +377,7 @@ inline ccbuff bt_translate_tail(ccbuff buf, byteptr pc, bdecode *inst) {
         X86_MOV_IMM32_R32(buf, REG_EAX);
         X86_IMM32(buf, ISR_ILLOP);
     }
-    return buf;
+    *pbuf = buf;
 }
 
 void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
@@ -381,14 +390,14 @@ void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
 
     cfrag->start_pc = frag->start_pc;
 
-    buf = bt_translate_prologue(buf, pc);
+    bt_translate_prologue(&buf, pc);
 
     for(i = 0; i < frag->ninsts; i++) {
-        buf = bt_translate_inst(buf, pc, &frag->insts[i]);
+        bt_translate_inst(&buf, pc, &frag->insts[i]);
         pc += 4;
     }
     if(frag->tail) {
-        buf = bt_translate_tail(buf, pc, &frag->insts[i]);
+        bt_translate_tail(&buf, pc, &frag->insts[i]);
     } else {
         /*
          * default epilogue -- move emulated PC to %eax and jump to
