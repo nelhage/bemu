@@ -330,41 +330,59 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
     switch(inst->opcode) {
     case OP_BT:
     case OP_BF:
-        /*
-         * mov   regs[RA], %ecx
-         * mov   (pc+4), %eax
-         * mov   %ecx, regs[RC]
-         * test  %ecx, %ecx
-         * j[n]z .+5
-         * mov   (branch pc), %eax
-         */
-        if(inst->opcode == OP_BF && inst->ra == 31) {
+        if(inst->ra == 31) {
             /* Unconditional branch */
             SAVE_PC;
             X86_MOV_IMM32_R32(buf, REG_EAX);
-            X86_IMM32(buf, (pc + 4 + 4*inst->imm) & ~0x03);
+            if (inst->opcode == OP_BF) {
+                X86_IMM32(buf, (pc + 4 + 4*inst->imm) & ~0x03);
+            } else {
+                X86_IMM32(buf, pc + 4);
+            }
+
+            X86_JMP_REL32(buf);
+            X86_REL32(buf, bt_callout);
         } else {
-            LOAD_BETA_REG(buf, inst->ra, REG_ECX);
+            /*
+             * cmp   $0, regs[RA]
+             * j[n]z .+10
+             * mov   $(pc+4), %eax          ; 5 bytes
+             * jmp   bt_callout             ; 5 bytes
+             * mov   $(branch pc), CPU.PC
+             * jmp   bt_callout
+             */
+
+            X86_CMP_IMM32_RM32(buf, MOD_INDIR_DISP8, REG_EBP);
+            X86_DISP8(buf, 4 * inst->ra);
+            X86_IMM32(buf, 0);
+
+            SAVE_PC;
+
+            X86_JCC_REL8(buf, inst->opcode == OP_BT ? CC_NZ : CC_Z);
+            X86_DISP8(buf, 10);
 
             X86_MOV_IMM32_R32(buf, REG_EAX);
             X86_IMM32(buf, pc + 4);
 
-            WRITE_BETA_REG(buf, REG_ECX, inst->rc);
-
-            X86_TEST_R32_RM32(buf, REG_ECX, MOD_REG, REG_ECX);
-
-            X86_JCC_REL8(buf, inst->opcode == OP_BT ? CC_Z : CC_NZ);
-            X86_DISP8(buf, 5);
+            X86_JMP_REL32(buf);
+            X86_REL32(buf, bt_callout);
 
             X86_MOV_IMM32_R32(buf, REG_EAX);
             X86_IMM32(buf, (pc + 4 + 4*inst->imm) & ~0x03);
+
+            X86_JMP_REL32(buf);
+            X86_REL32(buf, bt_callout);
         }
         break;
     case OP_JMP:
         SAVE_PC;
         LOAD_BETA_REG(buf, inst->ra, REG_EAX);
+
         X86_AND_IMM32_RM32(buf, MOD_REG, REG_EAX);
         X86_IMM32(buf, (pc & PC_SUPERVISOR) | ~(PC_SUPERVISOR|0x3));
+
+        X86_JMP_REL32(buf);
+        X86_REL32(buf, bt_callout);
         break;
     default:
         /* If we made it here, it's an ILLOP */
@@ -376,6 +394,9 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
 
         X86_MOV_IMM32_R32(buf, REG_EAX);
         X86_IMM32(buf, ISR_ILLOP);
+
+        X86_JMP_REL32(buf);
+        X86_REL32(buf, bt_callout);
     }
     *pbuf = buf;
 }
@@ -400,14 +421,14 @@ void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
         bt_translate_tail(&buf, pc, &frag->insts[i]);
     } else {
         /*
-         * default epilogue -- move emulated PC to %eax and jump to
-         * bt_callout
+         * default epilogue -- save emulated PC and jump to bt_callout
          */
         X86_MOV_IMM32_R32(buf, REG_EAX);
         X86_IMM32(buf, pc);
+
+        X86_JMP_REL32(buf);
+        X86_REL32(buf, bt_callout);
     }
-    X86_JMP_REL32(buf);
-    X86_REL32(buf, bt_callout);
 }
 
 void bt_run() {
