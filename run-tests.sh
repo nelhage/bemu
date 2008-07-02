@@ -49,4 +49,4 @@ run_one align    "[00] ffffabcd"
 ulimit -t 2
 OPTIONS="clock"
 NONDET=1
-run_one timer    "[00000034] Done"
+run_one timer    "[00] ffffabcd"

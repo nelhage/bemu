@@ -5,11 +5,14 @@
 
         BR(start)
 illop:
+        CMPEQC(R0, 0xABCD, R1)
+        BT(R1, done)
         BF(R31, .+4, R0)
         CMPLTC(R0, 0, R1)       | Interrupts should be handled in supervisor mode
         BF(R1, fail)
         JMP(XP)                 | Skip the instruction
 fail:
+done:
         HALT()
 start:
         BF(R31, .+4, R0)
@@ -42,4 +45,4 @@ user1:
         BT(R1, fail, R0)
 
         CMOVE(0xABCD, R0)        | Indicate success
-        HALT()
+        HALT()                   | This will ILLOP

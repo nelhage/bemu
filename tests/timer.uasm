@@ -11,16 +11,19 @@ illop:
         HALT()
 
 clock:
-        ADDC(R0, 1, R0)
+        SUBC(R0, 1, R0)
+        BF(R0, pass)
         ADDC(XP, -4, XP)
         JMP(XP)
 
+pass:
+        CMOVE(0xABCD, R0)
+        HALT()
+
 start:
-        CMOVE(0, R0)
+        CMOVE(100, R0)
         || Lose the supervisor bit, so we get interrupts
         CMOVE(spin, R1)
         JMP(R1)
 spin:
-        CMPLTC(R0, 100, R1)
-        BT(R1, spin)
-        HALT()
+        BR(spin)

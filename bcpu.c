@@ -116,22 +116,24 @@ void bcpu_execute_one(bdecode *decode) {
         break;
 
     case OP_CALLOUT:
-        switch(decode->imm) {
-        case CALL_HALT:
-            CPU.halt = 1;
-            break;
-        case CALL_RDCHR:
-            CPU.regs[0] = beta_rdchr();
-            break;
-        case CALL_WRCHR:
-            beta_wrchr(CPU.regs[0]);
-            break;
-        default:
-            /* Treat an unknown callout as a NOP */
+        if(CPU.PC & PC_SUPERVISOR) {
+            switch(decode->imm) {
+            case CALL_HALT:
+                CPU.halt = 1;
+                break;
+            case CALL_RDCHR:
+                CPU.regs[0] = beta_rdchr();
+                break;
+            case CALL_WRCHR:
+                beta_wrchr(CPU.regs[0]);
+                break;
+            default:
+                /* Treat an unknown callout as a NOP */
+                break;
+            }
             break;
         }
-        break;
-
+        /* Fall through to ILLOP in user mode */
     default:
         CPU.regs[XP] = CPU.PC;
         CPU.PC = ISR_ILLOP;
