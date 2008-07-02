@@ -8,7 +8,8 @@ uasm = Builder(action = 'uasm/uasm $SOURCE',
 
 env = Environment(CFLAGS = '-O0 -g -m32',
                   CCPATH = '.',
-                  ASPPFLAGS='-m32')
+                  ASPPFLAGS='-m32',
+                  LINKFLAGS='-m32')
 env.Append(BUILDERS = {'UAsm': uasm})
 
 debug = ARGUMENTS.get('debug', 0)
@@ -24,6 +25,8 @@ bemu = env.Program('bemu', ['bemu.c', 'bcpu.c',
 Default(bemu)
 
 AlwaysBuild(env.Command('TAGS', '', 'etags *.[ch]'))
+
+env.Program('uasm/uasm.c')
 
 tests = ['align', 'bench1', 'bench2', 'bench3', 'bench4',
          'sancheck', 'supervisor', 'timer']
