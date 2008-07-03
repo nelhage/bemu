@@ -1,21 +1,25 @@
 .text
-.globl bt_callout
-.globl bt_start
+.globl bt_continue
+.globl bt_continue_chain
 .globl bt_enter
 .globl bt_interrupt
 
 bt_interrupt:
+        mov %eax, CPU
         mov bt_stack_base, %esp
         call bcpu_process_interrupt
-        jmp bt_translate_and_run
+        pushl $0
+        call bt_translate_and_run
 
-bt_callout:
+bt_continue:
+        pushl $0
+bt_continue_chain:
         mov %eax, CPU
-bt_start:
-        mov bt_stack_base, %esp
-        jmp bt_translate_and_run
+        call bt_translate_and_run
 
 bt_enter:
-        mov 4(%esp), %eax
+        mov 4(%esp), %ecx
+        mov bt_stack_base, %esp
         mov $(CPU + 4), %ebp
-        jmp *%eax
+        mov CPU, %eax
+        jmp *%ecx

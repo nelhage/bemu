@@ -14,11 +14,11 @@ static compiled_frag *frag_hash[256];
 
 /* bt_helper.S */
 extern void bt_enter(ccbuff buf) __attribute__((noreturn));
-extern void bt_callout(void);
+extern void bt_continue(void);
+extern void bt_continue_chain(void);
 extern void bt_interrupt(void);
-extern void bt_start() __attribute__((noreturn));
 
-void bt_translate_and_run(void) __attribute__((noreturn, used));
+void bt_translate_and_run(ccbuff chainptr) __attribute__((noreturn, used));
 static void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag);
 
 /*
@@ -308,6 +308,7 @@ inline void bt_translate_inst(ccbuff *pbuf, byteptr pc, bdecode *inst) {
 
 inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
     ccbuff buf = *pbuf;
+
     if(!(pc & PC_SUPERVISOR)) {
         X86_TEST_IMM32_RM32(buf, MOD_INDIR, REG_DISP32);
         X86_DISP32(buf, &pending_interrupts);
@@ -340,16 +341,17 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
                 X86_IMM32(buf, pc + 4);
             }
 
-            X86_JMP_REL32(buf);
-            X86_REL32(buf, bt_callout);
+            X86_CALL_REL32(buf);
+            X86_REL32(buf, bt_continue_chain);
         } else {
             /*
              * cmp   $0, regs[RA]
+             * mov   $(pc+4), regs[RC]
              * j[n]z .+10
              * mov   $(pc+4), %eax          ; 5 bytes
-             * jmp   bt_callout             ; 5 bytes
+             * cal   bt_continue_chain      ; 5 bytes
              * mov   $(branch pc), CPU.PC
-             * jmp   bt_callout
+             * jmp   bt_continue_chain
              */
 
             X86_CMP_IMM32_RM32(buf, MOD_INDIR_DISP8, REG_EBP);
@@ -364,14 +366,14 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
             X86_MOV_IMM32_R32(buf, REG_EAX);
             X86_IMM32(buf, pc + 4);
 
-            X86_JMP_REL32(buf);
-            X86_REL32(buf, bt_callout);
+            X86_CALL_REL32(buf);
+            X86_REL32(buf, bt_continue_chain);
 
             X86_MOV_IMM32_R32(buf, REG_EAX);
             X86_IMM32(buf, (pc + 4 + 4*inst->imm) & ~0x03);
 
-            X86_JMP_REL32(buf);
-            X86_REL32(buf, bt_callout);
+            X86_CALL_REL32(buf);
+            X86_REL32(buf, bt_continue_chain);
         }
         break;
     case OP_JMP:
@@ -382,7 +384,7 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_IMM32(buf, (pc & PC_SUPERVISOR) | ~(PC_SUPERVISOR|0x3));
 
         X86_JMP_REL32(buf);
-        X86_REL32(buf, bt_callout);
+        X86_REL32(buf, bt_continue);
         break;
     default:
         /* If we made it here, it's an ILLOP */
@@ -395,8 +397,8 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_MOV_IMM32_R32(buf, REG_EAX);
         X86_IMM32(buf, ISR_ILLOP);
 
-        X86_JMP_REL32(buf);
-        X86_REL32(buf, bt_callout);
+        X86_CALL_REL32(buf);
+        X86_REL32(buf, bt_continue_chain);
     }
     *pbuf = buf;
 }
@@ -421,13 +423,13 @@ void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
         bt_translate_tail(&buf, pc, &frag->insts[i]);
     } else {
         /*
-         * default epilogue -- save emulated PC and jump to bt_callout
+         * default epilogue -- save emulated PC and jump to bt_continue_chain
          */
         X86_MOV_IMM32_R32(buf, REG_EAX);
         X86_IMM32(buf, pc);
 
-        X86_JMP_REL32(buf);
-        X86_REL32(buf, bt_callout);
+        X86_CALL_REL32(buf);
+        X86_REL32(buf, bt_continue_chain);
     }
 }
 
@@ -445,7 +447,8 @@ void bt_run() {
             panic("Unable to allocate BT stack!\n");
         }
     }
-    bt_stack_base += BT_STACK_SIZE;
+    bt_stack_base += BT_STACK_SIZE - sizeof(uint32_t);
+    *((uint32_t*)bt_stack_base) = 0;
 
     if(!frag_cache) {
         frag_cache = mmap(NULL, BT_CACHE_SIZE,
@@ -458,7 +461,7 @@ void bt_run() {
         bt_clear_cache();
     }
 
-    bt_start();
+    bt_translate_and_run(NULL);
 }
 
 inline bool bt_can_translate(bdecode *inst) {
@@ -472,7 +475,7 @@ inline bool bt_can_translate(bdecode *inst) {
         inst->opcode == OP_LDR;
 }
 
-void bt_translate_and_run() {
+void bt_translate_and_run(ccbuff chainptr) {
     compiled_frag *cfrag;
     decode_frag frag;
     uint32_t inst;
@@ -499,7 +502,7 @@ void bt_translate_and_run() {
                 }
                 pc += 4;
             }
-            if (i > 0) {
+            if (frag.tail || i > 0) {
                 frag.ninsts = i;
                 cfrag = bt_alloc_cfrag(TRUE);
                 bt_translate_frag(cfrag, &frag);
@@ -510,8 +513,15 @@ void bt_translate_and_run() {
         }
 
         if(cfrag) {
+            if(chainptr) {
+                chainptr -= 5;
+                X86_JMP_REL32(chainptr);
+                X86_REL32(chainptr, cfrag->code);
+                LOG("Chaining to frag 0x%08x", cfrag->start_pc);
+            }
             bt_enter(cfrag->code);
         } else {
+            chainptr = NULL;
             bcpu_execute_one(&frag.insts[0]);
             if(CPU.halt) {
                 longjmp(bt_exit_buf, 1);

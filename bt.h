@@ -3,11 +3,12 @@
 
 #define MAX_BYTES_PER_INSTRUCTION       24
 #define MAX_FRAG_SIZE                   10
-#define CCBUFF_PROLOGUE_SIZE            
+#define CCBUFF_PROLOGUE_SIZE            20
 #define CCBUFF_EPILOGUE_SIZE            11
 #define CCBUFF_MAX_SIZE                 (MAX_BYTES_PER_INSTRUCTION * \
                                          MAX_FRAG_SIZE               \
-                                         + CCBUFF_EPILOGUE_SIZE)
+                                         + CCBUFF_EPILOGUE_SIZE      \
+                                         + CCBUFF_PROLOGUE_SIZE)
 
 typedef struct {
     byteptr start_pc;
