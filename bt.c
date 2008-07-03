@@ -77,7 +77,44 @@ void bt_insert_frag(compiled_frag *frag) {
 /* Actual binary translation */
 
 /*
- * During execution, %ebp points to the base of the regfile
+ * How this all works
+ * ==================
+ *
+ * We translate in units of "fragments", which are `MAX_FRAG_SIZE'
+ * instructions, or end at transfer-of-control-flow. Fragments are
+ * inserted into the `frag_cache' as they are translated, and entered
+ * by a call to bt_enter(frag->code). Frags exit to either
+ * `bt_continue' or `bt_continue_chain' (see CHAINING for more
+ * information)
+ *
+ * Register use
+ * ------------
+ * During execution of a frag, %ebp points to the base of a register
+ * file. We do no register allocation, and back all of the \Beta's
+ * registers with memory. At frag entry and exit (but *not* during
+ * frag execution), %eax holds the emulated program counter;
+ * `bt_enter' and `bt_continue' in bt_helper.S are responsible for
+ * loading/restoring CPU.PC. Other than that, no register are special
+ * purposed at the moment.
+ *
+ * Chaining
+ * --------
+ *
+ * For performance, we can "chain" fragments that always follow each,
+ * by overwriting the translated fragment with a jump directly to the
+ * next fragment.
+ *
+ * bt_translate_and_run, the main loop of the bt engine, accepts a
+ * `chainptr' argument. If this argument is non-NULL, it points
+ * immediately *after* a CALL instruction that should be overwritten
+ * by a JMP to the fragment at CPU.PC, if appropriate.
+ *
+ * As mentioned, frags can exit either to bt_continue or
+ * bt_continue_chain. Frags exiting to bt_continue_chain by a CALL,
+ * which leaves the return address on the stack, where it will be
+ * taken as the `chainptr' argument when bt_continue subsequently
+ * CALLs bt_translate_and_run. `bt_continue' simply pushes a NULL
+ * chainptr and falls through to bt_continue_chain
  */
 
 #define LOAD_BETA_REG(buf, breg, x86reg) ({                             \
