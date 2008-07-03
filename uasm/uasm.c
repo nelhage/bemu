@@ -35,48 +35,20 @@ static char *rcs_id = "$Id: uasm.c,v 1.5 1993/05/05 15:13:56 chaiken Exp chaiken
 #endif
 #endif
 
+#define _GNU_SOURCE
 
 #include <stdio.h>
-
-/* Incantations necessary to get things to work under all of the athena
-   architectures, plus local SPARCstations, plus hpux.
-
-   I really, really, really hate UN*X.
-*/
-#ifdef ibm032
-typedef int size_t;
-#else
-#ifdef __STDC__
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 #include <stdlib.h>
-#else
-#ifdef sun
-#include <stdlib.h>
-#else
-#ifdef hpux
-#include <stdlib.h>
-#else
-#ifdef THINK_C
-#include <stdlib.h>
-#else
-#ifndef _AIX
-typedef int size_t;
-#endif
-#endif
-#endif
-#endif
-#endif
-#endif
-
 #include <string.h>
 #include <unistd.h>
 
-#ifndef vax
-#define htonl(x) (x)
-#endif
-
 #define LSIZE	200	/* max size of input line */
 #define	MSIZE	2000	/* max size of macro body. */
-#define ROMSIZE 0x8000	/* size of target rom */
+#define DEFROMSIZE 8 * 1024	/* default size of target rom */
 #define HASHSIZE 137	/* number of hash buckets */
 #define NARGS	100	/* maximum number of args in a macro call */
 
@@ -143,7 +115,9 @@ char *salign(), *stext(), *sascii();
 char iline[LSIZE];	/* current input line resides here */
 unsigned Line_no;	/* current input line number */
 char *File_name;	/* current input file name */
-char rom[ROMSIZE];	/* where generated code is stored */
+int  romfd;
+int romsize;
+char *rom;              /* where generated code is stored */
 int Pass;			/* which pass we're on */
 int errline;		/* set when there has been an error on this line */
 int errfile;		/* set when there has been an error in the file */
@@ -798,15 +772,27 @@ char *soperand(lptr)
  sdone:	return(lptr);
 }
 
+void RomGrow() {
+    int oldromsize;
+    oldromsize = romsize;
+    romsize *= 2;
+    ftruncate(romfd, romsize);
+    rom = mremap(rom, oldromsize, romsize, MREMAP_MAYMOVE);
+    if(rom == MAP_FAILED) {
+        ERROR((stderr, "Can't mremap"));
+        Dot.value -= 1;
+    }
+}
+
 /* Output a byte to ROM:
  */
 RomByte(b)
  { rom[Dot.value] = b;
    if (Dot.value > MaxDotValue)
      MaxDotValue = Dot.value;
-   if ((Dot.value += 1) > ROMSIZE)
-    { ERROR((stderr, "program too large for rom"));
-      Dot.value -= 1;
+   if ((Dot.value += 1) >= romsize)
+    {
+        RomGrow();
     }
  }
 
@@ -977,6 +963,7 @@ main(argc,argv)
   char *argv[];
   {	register int i;
 	char filename[100];
+        char romfile[100];
         char cwd[256];
         char *dir, *slash;
         char *dot;
@@ -1010,6 +997,27 @@ main(argc,argv)
 	  exit(-1);
 	}
 
+        /* open ROM for mmap */
+        strcpy(romfile, File_name);
+        strcat(romfile, ".bin");
+        romfd = open(romfile, O_RDWR);
+        if(romfd < 0) {
+            fprintf(stderr,"Cannot open %s for output\n",romfile);
+            exit(-1);
+        }
+
+        romsize = DEFROMSIZE;
+        
+        ftruncate(romfd, romsize);
+        rom = mmap(NULL, romsize, PROT_WRITE|PROT_READ, MAP_SHARED,
+                   romfd, 0);
+        if(rom == MAP_FAILED) {
+            fprintf(stderr,"Cannot mmap %s for output\n",romfile);
+            close(romfd);
+            unlink(romfile);
+            exit(-1);
+        }
+
         /* Hack; chdir to the same directory while processing */
         getcwd(cwd, 256);
         dir = strdup(filename);
@@ -1022,9 +1030,6 @@ main(argc,argv)
 	/* initialize hash table */
 	for (i = 0; i < HASHSIZE; i += 1) hashtbl[i] = NULL;
 	hashtbl[hash(Dot.name)] = &Dot;
-
-	/* no rom locations have been set yet */
-	for (i = 0; i < ROMSIZE; i += 1) rom[i] = -1;
 
 	/* standard two pass assembly algorithm */
 	for (Pass = 1; Pass <= 2; cleanup(), Pass += 1) {
@@ -1043,22 +1048,14 @@ main(argc,argv)
 	/* write rom contents */
 	if (errfile) {
 	  fprintf(stderr,"Input file had errors, aborting...\n");
+          close(romfd);
+          unlink(romfile);
 	  exit(-1);
-	} else {	 	/* create rom output file */
-	  strcpy(filename,File_name);
-	  strcat(filename,".bin");
-	  if (MaxDotValue >= 0) {
-	    if ((f = fopen(filename,"wb")) == NULL)
-	      fprintf(stderr,"Cannot open %s for output\n",filename);
-	    else {
-	      if (fwrite(rom,1,MaxDotValue,f) != MaxDotValue)
-		fprintf(stderr, "Error writing binary output\n");
-	      fclose(f);
-	    }
-	  }
-	  else
-	    fprintf(stderr, "No binary output!\n");
-	}
+	} else {
+            munmap(rom, romsize);
+            ftruncate(romfd, MaxDotValue);
+            close(romfd);
+        }
 
 	/* output symbol table */
 	strcpy(filename,File_name);
