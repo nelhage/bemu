@@ -16,7 +16,7 @@ TESTS:=$(TESTS:%=tests/%.bin)
 $(BEMU): LDFLAGS += -lrt
 $(BEMU): $(OBJECTS)
 
-$(UASM):
+$(UASM): CFLAGS += -w
 
 $(OBJECTS): $(HEADERS)
 
