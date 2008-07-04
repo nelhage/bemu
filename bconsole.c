@@ -51,11 +51,7 @@ void console_open(bool interrupt) {
         panic("Can't tcsettattr(0): %s", strerror(errno));
     }
 
-    sigemptyset(&set);
-    sigaddset(&set, SIGIO);
-    if(sigprocmask(SIG_BLOCK, &set, NULL) < 0) {
-        panic("Can't sigprocmask: %s", strerror(errno));
-    }
+    signal(SIGIO, SIG_IGN);
 
     flags = fcntl(0, F_GETFL);
     flags |= O_ASYNC;
