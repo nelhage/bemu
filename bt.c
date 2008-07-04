@@ -19,7 +19,7 @@ extern void bt_continue_chain(void);
 extern void bt_interrupt(void);
 
 void bt_translate_and_run(ccbuff chainptr) __attribute__((noreturn, used));
-static void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag);
+static ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag);
 
 /*
  * Allocate a compiled_frag out of the frag_cache
@@ -44,7 +44,8 @@ void bt_clear_cache() {
 
 compiled_frag *bt_alloc_cfrag(bool may_clear) {
     compiled_frag *frag;
-    if(frag_alloc + sizeof *frag > frag_cache + BT_CACHE_SIZE) {
+    if(frag_alloc + sizeof *frag + CCBUFF_MAX_SIZE >
+       frag_cache + BT_CACHE_SIZE) {
         if(may_clear) {
             bt_clear_cache();
         } else {
@@ -440,7 +441,7 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
     *pbuf = buf;
 }
 
-void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
+ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
     ccbuff buf = cfrag->code;
     byteptr pc = frag->start_pc;
     int i;
@@ -468,6 +469,7 @@ void bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
         X86_CALL_REL32(buf);
         X86_REL32(buf, bt_continue_chain);
     }
+    return buf;
 }
 
 void bt_run() {
@@ -542,7 +544,7 @@ void bt_translate_and_run(ccbuff chainptr) {
             if (frag.tail || i > 0) {
                 frag.ninsts = i;
                 cfrag = bt_alloc_cfrag(TRUE);
-                bt_translate_frag(cfrag, &frag);
+                frag_alloc = bt_translate_frag(cfrag, &frag);
                 bt_insert_frag(cfrag);
             }
         } else {

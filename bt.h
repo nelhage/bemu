@@ -18,9 +18,9 @@ typedef struct {
 } decode_frag;
 
 typedef struct compiled_frag {
-    uint8_t code[CCBUFF_MAX_SIZE];
     byteptr start_pc;
     struct compiled_frag *hash_next;
+    uint8_t code[0];
 } compiled_frag;
 
 #define HASH_PC(pc) (((pc) >> 2) & 0xFF)
