@@ -1,10 +1,9 @@
 #include "bemu.h"
+
 #include <unistd.h>
 #include <getopt.h>
-
-#define _GNU_SOURCE
 #include <string.h>
-
+#include <sys/time.h>
 #include <time.h>
 
 /* Subtract the `struct timeval' values X and Y,
@@ -61,8 +60,12 @@ void handle_flags(char *optval) {
     char *comma;
 
     while(1) {
-        comma = (char*)strchrnul(optval, ',');
-        len = comma - optval;
+        comma = (char*)strchr(optval, ',');
+        if(comma) {
+            len = comma - optval;
+        } else {
+            len = strlen(optval);
+        }
         if(!strncmp(optval, "clock", len)) {
             cpu_options.enable_clock = 1;
         } else if(!strncmp(optval, "tty", len)) {
@@ -71,7 +74,7 @@ void handle_flags(char *optval) {
             fprintf(stderr, "Bad option spec: %s\n", optval);
             usage();
         }
-        if(!*comma) {
+        if(!comma) {
             break;
         }
         optval = comma + 1;
@@ -151,7 +154,7 @@ int main(int argc, char **argv)
 
     if(cpu_options.do_time) {
         timeval_subtract(&delta, &end, &start);
-        printf("Executed in %ds.%dus\n", delta.tv_sec, delta.tv_usec);
+        printf("Executed in %ds.%dus\n", (int)delta.tv_sec, (int)delta.tv_usec);
     }
 
     if(cpu_options.do_dump) {

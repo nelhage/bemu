@@ -13,17 +13,16 @@ static pthread_t console_thread;
 static struct termios saved_termios;
 static int kbd_char;
 
-void* console_process(void *arg) {
+void* console_process(void *arg UNUSED) {
     int err;
     struct pollfd pollfd = {
         .fd   = 0,
         .events = POLLIN
     };
-    struct timespec timeout = {-1, 0};
     while(1) {
         err = poll(&pollfd, 1, -1);
         if(err < 0) {
-            if(errno = EINTR) continue;
+            if(errno == EINTR) continue;
             panic("Poll returned error: %s\n", strerror(errno));
         }
         LOG("Keyboard interrupt!\n");
@@ -39,7 +38,6 @@ void* console_process(void *arg) {
 void console_open(bool interrupt) {
     LOG("console_open(%d)", interrupt);
     struct termios termios;
-    sigset_t set;
     int flags;
     /* Disable echo */
     if(tcgetattr(0, &saved_termios) < 0) {

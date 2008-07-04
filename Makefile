@@ -1,4 +1,4 @@
-CFLAGS=-m32 -O2 -g
+CFLAGS=-m32 -O2 -g -Wall
 ASFLAGS=-m32
 LDFLAGS=-m32
 
@@ -34,4 +34,7 @@ TAGS: $(SRCS) $(ASMSRCS) $(HEADERS)
 
 tags: TAGS
 
-.phony: CLEAN tags
+check-syntax:
+	$(CC) $(CCFLAGS) -Wall -Wextra -fsyntax-only $(CHK_SOURCES)
+
+.phony: CLEAN tags check-syntax

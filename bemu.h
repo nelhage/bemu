@@ -16,6 +16,7 @@
 #include "x86.h"
 #include "bt.h"
 #include "bclock.h"
+#include "bconsole.h"
 
 #ifdef DEBUG
 #define LOG(fmt, ...) printf("%s:%d: " fmt "\n", __FILE__, __LINE__, ## __VA_ARGS__)
@@ -27,5 +28,7 @@
 
 #define panic(fmt, ...) __panic(__FILE__, __LINE__, fmt, ## __VA_ARGS__);
 void __panic(char *file, int line, char *fmt, ...) __attribute__((noreturn));
+
+#define UNUSED __attribute__((unused))
 
 #endif
