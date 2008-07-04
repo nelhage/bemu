@@ -1,0 +1,22 @@
+This code implements a working Just-In-Time binary translator from the
+Beta [1] processor to the i386. It supports clock and keyboard
+interrupts, and correctly executes lab6.uasm, bench[1-4].uasm, and
+litmus.uasm, as well as Lab 8's operating system [2].
+
+This source is canonically available as a git tree from
+http://nelhage.com/git/bemu.git/, or as a tarball from
+http://nelhage.com/files/bemu.tgz (not guaranteed to be up-to-date)
+
+It should work on just about any modern Linux system; I've tested it
+on Athena and it works fine there.
+
+To run the self-tests, `make test'; To run the lab8 OS, `make
+run-lab8'.
+
+It alsos includes a somewhat hacked version of `uasm' from
+http://web.mit.edu/6.004/src/posix-src/uasm/, modified to deal with
+relative includes slightly better, and to support arbitrary-sized
+ROMs.
+
+[1] http://6004.csail.mit.edu/currentsemester/handouts/beta.pdf
+[2] http://web.mit.edu/6.004/bsim/lab8.uasm
