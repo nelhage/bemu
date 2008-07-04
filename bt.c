@@ -359,7 +359,7 @@ inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
 
     if(!(pc & PC_SUPERVISOR)) {
         X86_TEST_IMM32_RM32(buf, MOD_INDIR, REG_DISP32);
-        X86_DISP32(buf, &pending_interrupts);
+        X86_DISP32(buf, &CPU.pending_interrupts);
         X86_IMM32(buf, 0xFFFFFFFF);
         X86_JCC_REL32(buf, CC_NZ);
         X86_REL32(buf, bt_interrupt);

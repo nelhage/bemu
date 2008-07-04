@@ -16,8 +16,8 @@
 #define INT_KBD         0x0002
 #define INT_MOUSE       0x0004
 
-#define set_interrupt(i)   ({pending_interrupts |= i;})
-#define clear_interrupt(i) ({pending_interrupts &= ~i;})
+#define set_interrupt(i)   ({CPU.pending_interrupts |= i;})
+#define clear_interrupt(i) ({CPU.pending_interrupts &= ~i;})
 
 
 #define XP 30
@@ -26,12 +26,12 @@ typedef struct {
     /* This layout is hard-coded into bt.S */
     uint32_t PC;
     uint32_t regs[32];
+    uint32_t pending_interrupts;
     bool     halt;
 } beta_cpu;
 
 extern beta_cpu CPU;
 extern uint32_t *beta_mem;
-extern uint32_t pending_interrupts;
 
 /*
  * We address memory by words, internally, but the beta uses

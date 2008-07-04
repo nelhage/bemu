@@ -2,7 +2,6 @@
 
 beta_cpu CPU;
 uint32_t *beta_mem;
-uint32_t pending_interrupts;
 
 inline void write_reg(beta_reg reg, uint32_t val)
 {
@@ -11,10 +10,10 @@ inline void write_reg(beta_reg reg, uint32_t val)
 
 void bcpu_process_interrupt() {
     byteptr  isr = 0;
-    if(pending_interrupts & INT_CLK) {
+    if(CPU.pending_interrupts & INT_CLK) {
         clear_interrupt(INT_CLK);
         isr = ISR_CLK;
-    } else if(pending_interrupts & INT_KBD) {
+    } else if(CPU.pending_interrupts & INT_KBD) {
         isr = ISR_KBD;
     }
     if(isr) {
@@ -140,7 +139,7 @@ void bcpu_execute_one(bdecode *decode) {
         break;
     }
 
-    if(pending_interrupts && !(CPU.PC & PC_SUPERVISOR)) {
+    if(CPU.pending_interrupts && !(CPU.PC & PC_SUPERVISOR)) {
         bcpu_process_interrupt();
     }
 }
