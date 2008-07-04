@@ -26,6 +26,7 @@ void bcpu_execute_one(bdecode *decode) {
     uint32_t old_pc;
 
     CPU.PC += 4;
+    CPU.inst_count++;
     /*
      * Enforce R31 is always 0
      */
@@ -147,8 +148,8 @@ void bcpu_execute_one(bdecode *decode) {
 void bcpu_reset()
 {
     CPU.PC = ISR_RESET;
-    /* XXX Do we need to zero registers? */
     CPU.regs[31] = 0;
+    CPU.inst_count = 0;
     CPU.halt = 0;
 }
 

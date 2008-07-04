@@ -397,7 +397,7 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
              * mov   $(pc+4), regs[RC]
              * j[n]z .+10
              * mov   $(pc+4), %eax          ; 5 bytes
-             * cal   bt_continue_chain      ; 5 bytes
+             * call  bt_continue_chain      ; 5 bytes
              * mov   $(branch pc), CPU.PC
              * jmp   bt_continue_chain
              */
@@ -467,6 +467,13 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
         bt_translate_inst(&buf, pc, &frag->insts[i]);
         pc += 4;
     }
+
+    /* Update CPU.inst_count */
+
+    X86_ADD_IMM32_RM32(buf, MOD_INDIR, REG_DISP32);
+    X86_DISP32(buf, &CPU.inst_count);
+    X86_IMM32(buf, frag->ninsts + (frag->tail ? 1 : 0));
+
     if(frag->tail) {
         bt_translate_tail(&buf, pc, &frag->insts[i]);
     } else {

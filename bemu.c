@@ -154,7 +154,8 @@ int main(int argc, char **argv)
 
     if(cpu_options.do_time) {
         timeval_subtract(&delta, &end, &start);
-        printf("Executed in %ds.%dus\n", (int)delta.tv_sec, (int)delta.tv_usec);
+        printf("Executed %d insts in %ds.%dus\n", CPU.inst_count,
+               (int)delta.tv_sec, (int)delta.tv_usec);
     }
 
     if(cpu_options.do_dump) {

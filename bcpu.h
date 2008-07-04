@@ -27,6 +27,7 @@ typedef struct {
     uint32_t PC;
     uint32_t regs[32];
     uint32_t pending_interrupts;
+    uint32_t inst_count;
     bool     halt;
 } beta_cpu;
 
