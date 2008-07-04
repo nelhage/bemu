@@ -34,6 +34,13 @@ clean:
 %.bin: %.uasm $(UASM)
 	$(UASM) $<
 
+run-%: tests/%.bin
+	./bemu $(BEMUOPTS) $<
+
+run-os: BEMUOPTS += -o clock,tty
+run-lab8: BEMUOPTS += -o clock,tty
+run-timer: BEMUOPTS += -o clock
+
 test: $(TESTS) $(UASM) $(BEMU)
 	./run-tests.sh
 
