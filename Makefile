@@ -17,6 +17,7 @@ $(BEMU): LDFLAGS += -lrt
 $(BEMU): $(OBJECTS)
 
 $(UASM): CFLAGS += -w
+$(UASM):
 
 $(OBJECTS): $(HEADERS)
 
