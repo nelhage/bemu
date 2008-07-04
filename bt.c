@@ -2,7 +2,17 @@
 
 #include <setjmp.h>
 
+/*
+ * In DEBUG mode, we call out to LOG(), which does things like printf
+ * which expect a lot of stack to work with. If we're just running our
+ * code, 8k is plenty.
+ */
+#ifdef DEBUG
 #define BT_STACK_SIZE  (1 << 16)
+#else
+#define BT_STACK_SIZE  (1 << 13)
+#endif
+
 /* 1MB translation cache */
 #define BT_CACHE_SIZE  (1 << 20)
 
