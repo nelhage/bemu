@@ -6,7 +6,7 @@ SRCS=bemu.c bcpu.c bdecode.c bt.c bclock.c bconsole.c
 ASMSRCS=bt_helper.S
 OBJECTS=$(SRCS:.c=.o) $(ASMSRCS:.S=.o)
 GEN_H=opcodes.h
-HEADERS=$(SRCS:.c=.h) $(GEN_H)
+HEADERS=$(SRCS:.c=.h) $(GEN_H) x86.h
 
 BEMU=bemu
 UASM=uasm/uasm
