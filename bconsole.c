@@ -52,6 +52,7 @@ void console_open(bool interrupt) {
     }
 
     signal(SIGIO, SIG_IGN);
+    signal(SIGPOLL, SIG_IGN);
 
     flags = fcntl(0, F_GETFL);
     flags |= O_ASYNC;
