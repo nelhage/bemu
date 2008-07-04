@@ -145,7 +145,7 @@ void bt_insert_frag(compiled_frag *frag) {
     }                                                                   \
         });
 
-inline void bt_translate_arith(ccbuff *pbuf, byteptr pc, bdecode *inst) {
+inline void bt_translate_arith(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) {
     ccbuff buf = *pbuf;
     /* Load %eax with RA, the LHS */
     LOAD_BETA_REG(buf, inst->ra, REG_EAX);
@@ -205,7 +205,7 @@ inline void bt_translate_arith(ccbuff *pbuf, byteptr pc, bdecode *inst) {
 }
 
 
-inline void bt_translate_arithc(ccbuff *pbuf, byteptr pc, bdecode *inst) {
+inline void bt_translate_arithc(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) {
     ccbuff buf = *pbuf;
     uint32_t constant = inst->imm;
     /* Load %eax with RA, the LHS */
