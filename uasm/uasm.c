@@ -1000,7 +1000,7 @@ main(argc,argv)
         /* open ROM for mmap */
         strcpy(romfile, File_name);
         strcat(romfile, ".bin");
-        romfd = open(romfile, O_RDWR);
+        romfd = open(romfile, O_RDWR|O_CREAT, 0644);
         if(romfd < 0) {
             fprintf(stderr,"Cannot open %s for output\n",romfile);
             exit(-1);
