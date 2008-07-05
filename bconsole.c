@@ -57,6 +57,8 @@ void console_open(bool interrupt) {
     flags = saved_flags|O_ASYNC;
     fcntl(0, F_SETFL, flags);
 
+    setvbuf(stdout, NULL, _IONBF, 0);
+
     if(interrupt) {
         LOG("Creating keyboard processing thread...");
         if(pthread_mutex_init(&console_mutex, NULL) < 0) {
@@ -79,7 +81,6 @@ void console_close() {
 
 void beta_wrchr(int chr) {
     putchar(chr);
-    fflush(stdout);
 }
 
 int beta_rdchr() {
