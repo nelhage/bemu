@@ -11,6 +11,7 @@ static pthread_mutex_t console_mutex;
 static pthread_t console_thread;
 
 static struct termios saved_termios;
+static int saved_flags;
 static int kbd_char;
 
 void* console_process(void *arg UNUSED) {
@@ -52,8 +53,8 @@ void console_open(bool interrupt) {
     signal(SIGIO, SIG_IGN);
     signal(SIGPOLL, SIG_IGN);
 
-    flags = fcntl(0, F_GETFL);
-    flags |= O_ASYNC;
+    saved_flags = fcntl(0, F_GETFL);
+    flags = saved_flags|O_ASYNC;
     fcntl(0, F_SETFL, flags);
 
     if(interrupt) {
@@ -73,6 +74,7 @@ void console_open(bool interrupt) {
 
 void console_close() {
     tcsetattr(0, TCSANOW, &saved_termios);
+    fcntl(0, F_SETFL, saved_flags);
 }
 
 void beta_wrchr(int chr) {
