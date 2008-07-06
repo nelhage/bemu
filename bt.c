@@ -46,12 +46,18 @@ static void bt_insert_frag(compiled_frag *frag);
 /* frag cache management */
 
 void bt_clear_cache() {
-    LOG("Clearing BT cache",1);
+    LOG("Clearing BT cache");
     frag_alloc = frag_cache;
     memset(frag_hash, 0, sizeof frag_hash);
 }
 
 
+/*
+ * When this returns, only `sizeof (struct compiled_frag)' memory is
+ * allocated. `bt_translate_and_run' updates `frag_alloc' to point
+ * beyond the generated code after a fragment is translated into the
+ * returned frag.
+ */
 compiled_frag *bt_alloc_cfrag(bool may_clear) {
     compiled_frag *frag;
     if(frag_alloc + sizeof *frag + CCBUFF_MAX_SIZE >
@@ -105,27 +111,27 @@ void bt_insert_frag(compiled_frag *frag) {
  * registers with memory. At frag entry and exit (but *not* during
  * frag execution), %eax holds the emulated program counter;
  * `bt_enter' and `bt_continue' in bt_helper.S are responsible for
- * loading/restoring CPU.PC. Other than that, no register are special
- * purposed at the moment.
+ * loading/restoring CPU.PC. Other than that, no registers are
+ * special-purposed at the moment.
  *
  * Chaining
  * --------
  *
- * For performance, we can "chain" fragments that always follow each,
- * by overwriting the translated fragment with a jump directly to the
- * next fragment.
+ * For performance, we can "chain" fragments that always follow each
+ * other, by overwriting the translated fragment with a jump directly
+ * to the next fragment.
  *
  * bt_translate_and_run, the main loop of the bt engine, accepts a
  * `chainptr' argument. If this argument is non-NULL, it points
  * immediately *after* a CALL instruction that should be overwritten
- * by a JMP to the fragment at CPU.PC, if appropriate.
+ * by a JMP to the fragment translated from CPU.PC, if appropriate.
  *
  * As mentioned, frags can exit either to bt_continue or
  * bt_continue_chain. Frags exiting to bt_continue_chain by a CALL,
  * which leaves the return address on the stack, where it will be
  * taken as the `chainptr' argument when bt_continue subsequently
  * CALLs bt_translate_and_run. `bt_continue' simply pushes a NULL
- * chainptr and falls through to bt_continue_chain
+ * chainptr and falls through to bt_continue_chain.
  */
 
 #define LOAD_BETA_REG(buf, breg, x86reg) ({                             \
@@ -354,6 +360,10 @@ inline void bt_translate_inst(ccbuff *pbuf, byteptr pc, bdecode *inst) {
     return;
 }
 
+/*
+ * At the start of every user-mode fragment, we check for pending
+ * interrupts and jump out to `bt_interrupt' to handle them if so.
+ */
 inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
     ccbuff buf = *pbuf;
 
