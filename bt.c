@@ -409,7 +409,7 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
              * mov   $(pc+4), %eax          ; 5 bytes
              * call  bt_continue_chain      ; 5 bytes
              * mov   $(branch pc), CPU.PC
-             * jmp   bt_continue_chain
+             * call  bt_continue_chain
              */
 
             X86_CMP_IMM32_RM32(buf, MOD_INDIR_DISP8, REG_EBP);
