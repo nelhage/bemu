@@ -1,0 +1,7 @@
+* Clean up translation so we don't inspect every instruction twice
+  (once in bt_can_translate, once in the actual translation or
+  simulation)
+* Translate callouts as calls into the interpreter, rather the
+  kludigly special-casing them in bt_translate_and_run
+* Register allocation within frags
+* Better assembly generation (do ops in-place when possible)
