@@ -106,10 +106,10 @@ void bt_insert_frag(compiled_frag *frag) {
  *
  * Register use
  * ------------
- * During execution of a frag, %ebp points to the base of a register
- * file. We do no register allocation, and back all of the \Beta's
- * registers with memory. At frag entry and exit (but *not* during
- * frag execution), %eax holds the emulated program counter;
+ * During execution of a frag, %ebp points to the global beta_cpu
+ * being executed. We do no register allocation, and back all of the
+ * \Beta's registers with memory. At frag entry and exit (but *not*
+ * during frag execution), %eax holds the emulated program counter;
  * `bt_enter' and `bt_continue' in bt_helper.S are responsible for
  * loading/restoring CPU.PC. Other than that, no registers are
  * special-purposed at the moment.
@@ -140,14 +140,14 @@ void bt_insert_frag(compiled_frag *frag) {
         X86_XOR_RM32_R32(buf, MOD_REG, x86reg, x86reg);                 \
     } else {                                                            \
         X86_MOV_RM32_R32(buf, MOD_INDIR_DISP8, REG_EBP, x86reg);        \
-        X86_DISP8(buf, 4*__reg);                                        \
+        X86_DISP8(buf, offsetof(beta_cpu, regs) + 4*__reg);             \
     }                                                                   \
         });
 #define WRITE_BETA_REG(buf, x86reg, breg) ({                            \
     uint8_t __reg = (breg);                                             \
     if(__reg != 31) {                                                   \
         X86_MOV_R32_RM32(buf, x86reg, MOD_INDIR_DISP8, REG_EBP);        \
-        X86_DISP8(buf, 4*__reg);                                        \
+        X86_DISP8(buf, offsetof(beta_cpu, regs) + 4*__reg);             \
     }                                                                   \
         });
 
@@ -219,7 +219,7 @@ inline void bt_translate_arithc(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) 
         X86_XOR_RM32_R32(buf, MOD_REG, REG_EAX, REG_EAX);
     } else {
         X86_MOV_RM32_R32(buf, MOD_INDIR_DISP8, REG_EBP, REG_EAX);
-        X86_DISP8(buf, 4*inst->ra);
+        X86_DISP8(buf, offsetof(beta_cpu, regs) + 4*inst->ra);
     }
 
     switch(inst->opcode) {
@@ -368,8 +368,8 @@ inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
     ccbuff buf = *pbuf;
 
     if(!(pc & PC_SUPERVISOR)) {
-        X86_TEST_IMM32_RM32(buf, MOD_INDIR, REG_DISP32);
-        X86_DISP32(buf, &CPU.pending_interrupts);
+        X86_TEST_IMM32_RM32(buf, MOD_INDIR_DISP32, REG_EBP);
+        X86_DISP32(buf, offsetof(beta_cpu, pending_interrupts));
         X86_IMM32(buf, 0xFFFFFFFF);
         X86_JCC_REL32(buf, CC_NZ);
         X86_REL32(buf, bt_interrupt);
@@ -382,7 +382,7 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
 #define SAVE_PC                                                 \
     if(inst->rc != 31) {                                        \
         X86_MOV_IMM32_RM32(buf, MOD_INDIR_DISP8, REG_EBP);      \
-        X86_DISP8(buf, 4*inst->rc);                             \
+        X86_DISP8(buf, offsetof(beta_cpu, regs)+ 4*inst->rc);   \
         X86_IMM32(buf, pc + 4);                                 \
     }
 
@@ -413,7 +413,7 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
              */
 
             X86_CMP_IMM32_RM32(buf, MOD_INDIR_DISP8, REG_EBP);
-            X86_DISP8(buf, 4 * inst->ra);
+            X86_DISP8(buf, offsetof(beta_cpu, regs) + 4 * inst->ra);
             X86_IMM32(buf, 0);
 
             SAVE_PC;
@@ -449,7 +449,7 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         ASSERT(!decode_valid(inst));
         /* XP = PC + 4*/
         X86_MOV_IMM32_RM32(buf, MOD_INDIR_DISP8, REG_EBP);
-        X86_DISP8(buf, 4*XP);
+        X86_DISP8(buf, offsetof(beta_cpu, regs) + 4*XP);
         X86_IMM32(buf, pc + 4);
 
         X86_MOV_IMM32_R32(buf, REG_EAX);
@@ -480,8 +480,8 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
 
     /* Update CPU.inst_count */
 
-    X86_ADD_IMM32_RM32(buf, MOD_INDIR, REG_DISP32);
-    X86_DISP32(buf, &CPU.inst_count);
+    X86_ADD_IMM32_RM32(buf, MOD_INDIR_DISP32, REG_EBP);
+    X86_DISP32(buf, offsetof(beta_cpu, inst_count));
     X86_IMM32(buf, frag->ninsts + (frag->tail ? 1 : 0));
 
     if(frag->tail) {

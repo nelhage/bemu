@@ -18,6 +18,8 @@
 #include "bclock.h"
 #include "bconsole.h"
 
+#define offsetof(TYPE, MEMBER)  __builtin_offsetof (TYPE, MEMBER)
+
 #ifdef DEBUG
 #define LOG(fmt, ...) printf("%s:%d: " fmt "\n", __FILE__, __LINE__, ## __VA_ARGS__)
 #define ASSERT(x)     if(!(x)) {LOG("FAILED ASSERT : %s", #x); exit(1);}

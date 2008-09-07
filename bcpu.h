@@ -24,8 +24,8 @@
 
 typedef struct {
     /* This layout is hard-coded into bt.S */
-    uint32_t PC;
     uint32_t regs[32];
+    uint32_t PC;
     uint32_t pending_interrupts;
     uint32_t inst_count;
     bool     halt;

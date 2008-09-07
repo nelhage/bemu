@@ -5,7 +5,7 @@
 .globl bt_interrupt
 
 bt_interrupt:
-        mov %eax, CPU
+        mov %eax, 128(%ebp)
         mov bt_stack_base, %esp
         call bcpu_process_interrupt
         pushl $0
@@ -14,12 +14,12 @@ bt_interrupt:
 bt_continue:
         pushl $0
 bt_continue_chain:
-        mov %eax, CPU
+        mov %eax, 128(%ebp)
         call bt_translate_and_run
 
 bt_enter:
         mov 4(%esp), %ecx
         mov bt_stack_base, %esp
-        mov $(CPU + 4), %ebp
-        mov CPU, %eax
+        mov $CPU, %ebp
+        mov 128(%ebp), %eax
         jmp *%ecx
