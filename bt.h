@@ -9,6 +9,7 @@
                                          MAX_FRAG_SIZE               \
                                          + CCBUFF_EPILOGUE_SIZE      \
                                          + CCBUFF_PROLOGUE_SIZE)
+#define PGSIZE                          0x1000
 
 typedef struct {
     byteptr start_pc;

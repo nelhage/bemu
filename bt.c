@@ -505,11 +505,8 @@ void bt_run() {
     }
 
     if(!bt_stack_base) {
-        bt_stack_base = mmap(NULL, BT_STACK_SIZE,
-                             PROT_READ|PROT_WRITE,
-                             MAP_PRIVATE|MAP_ANONYMOUS|MAP_GROWSDOWN, -1, 0);
-        if(bt_stack_base == MAP_FAILED) {
-            perror("mmap");
+        bt_stack_base = malloc(BT_STACK_SIZE);
+        if(bt_stack_base == NULL) {
             panic("Unable to allocate BT stack!\n");
         }
     }
@@ -517,12 +514,15 @@ void bt_run() {
     *((uint32_t*)bt_stack_base) = 0;
 
     if(!frag_cache) {
-        frag_cache = mmap(NULL, BT_CACHE_SIZE,
-                          PROT_READ|PROT_WRITE|PROT_EXEC,
-                          MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-        if(frag_cache == MAP_FAILED) {
-            perror("mmap");
+        frag_cache = malloc(BT_CACHE_SIZE + PGSIZE);
+        if(frag_cache == NULL) {
             panic("Could not allocate BT cache!");
+        }
+        /* Page align */
+        frag_cache = (void*)(((uint32_t)frag_cache + PGSIZE) & ~(PGSIZE-1));
+        if(mprotect(frag_cache, BT_CACHE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC)) {
+            perror("mprotect");
+            panic("Unable to mprotect() the BT cache!");
         }
         bt_clear_cache();
     }
