@@ -1,25 +1,32 @@
 .text
-.globl bt_continue
-.globl bt_continue_chain
-.globl bt_enter
-.globl bt_interrupt
 
-bt_interrupt:
+#ifdef __APPLE__
+#define _(x) _##x
+#else
+#define _(x) x
+#endif
+
+.globl _(bt_continue)
+.globl _(bt_continue_chain)
+.globl _(bt_enter)
+.globl _(bt_interrupt)
+
+_(bt_interrupt):
         mov %eax, 128(%ebp)
-        mov bt_stack_base, %esp
-        call bcpu_process_interrupt
+        mov _(bt_stack_base), %esp
+        call _(bcpu_process_interrupt)
         pushl $0
-        call bt_translate_and_run
+        call _(bt_translate_and_run)
 
-bt_continue:
+_(bt_continue):
         pushl $0
-bt_continue_chain:
+_(bt_continue_chain):
         mov %eax, 128(%ebp)
-        call bt_translate_and_run
+        call _(bt_translate_and_run)
 
-bt_enter:
+_(bt_enter):
         mov 4(%esp), %ecx
-        mov bt_stack_base, %esp
-        mov $CPU, %ebp
+        mov _(bt_stack_base), %esp
+        mov $_(CPU), %ebp
         mov 128(%ebp), %eax
         jmp *%ecx
