@@ -1,33 +1,27 @@
 #include "bemu.h"
 
-#include <time.h>
+#include <sys/time.h>
 #include <signal.h>
 #include <errno.h>
-
-static timer_t beta_timer;
 
 static void clock_tick(int signal) {
     set_interrupt(INT_CLK);
 }
 
 void start_clock(void) {
-    struct sigevent evt = {
-        .sigev_notify = SIGEV_SIGNAL,
-        .sigev_signo  = SIGUSR1
-    };
-    struct itimerspec spec = {
-        .it_value    = {0, 10000000},
-        .it_interval = {0, 1000000000/BETA_HZ}
+    struct itimerval timer = {
+        { 0, 1000000 / BETA_HZ }, /* Interval */
+        { 0, 1000000 / BETA_HZ }, /* Current */
     };
 
-    if(signal(SIGUSR1, clock_tick) < 0) {
-        panic("Can't set timer signal handler: %s", strerror(errno));
+    if(signal(SIGALRM, clock_tick) < 0) {
+        perror("signal");
+        panic("Can't set timer signal handler");
     }
-    if(timer_create(CLOCK_REALTIME, &evt, &beta_timer) < 0) {
-        panic("Can't create Beta timer: %s", strerror(errno));
-    }
-    if(timer_settime(beta_timer, 0, &spec, NULL) < 0) {
-        panic("Can't start Beta timer: %s", strerror(errno));
+
+    if(setitimer(ITIMER_REAL, &timer, NULL) < 0) {
+        perror("setitimer");
+        panic("Unable to start the Beta clock.");
     }
     LOG("Started the clock at %dHz", BETA_HZ);
 }

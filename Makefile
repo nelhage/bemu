@@ -1,6 +1,6 @@
-CFLAGS=-m32 -O2 -g -Wall
+CFLAGS=-m32 -O2 -g -Wall -pthread
 ASFLAGS=-m32
-LDFLAGS=-m32
+LDFLAGS=-m32 -pthread
 
 SRCS=bemu.c bcpu.c bdecode.c bt.c bclock.c bconsole.c
 ASMSRCS=bt_helper.S
@@ -14,7 +14,6 @@ UASM=uasm/uasm
 TESTS=sancheck litmus bench1 bench2 bench3 bench4 supervisor align qsort timer
 TESTS:=$(TESTS:%=tests/%.bin)
 
-$(BEMU): LDFLAGS += -lrt
 $(BEMU): $(OBJECTS)
 
 $(UASM): CFLAGS += -w
