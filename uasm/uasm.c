@@ -773,13 +773,11 @@ char *soperand(lptr)
 }
 
 void RomGrow() {
-    int oldromsize;
-    oldromsize = romsize;
     romsize *= 2;
     ftruncate(romfd, romsize);
-    rom = mremap(rom, oldromsize, romsize, MREMAP_MAYMOVE);
-    if(rom == MAP_FAILED) {
-        ERROR((stderr, "Can't mremap"));
+    rom = realloc(rom, romsize);
+    if(rom == NULL) {
+        ERROR((stderr, "Can't realloc"));
         Dot.value -= 1;
     }
 }
@@ -997,7 +995,7 @@ main(argc,argv)
 	  exit(-1);
 	}
 
-        /* open ROM for mmap */
+        /* open ROM for output */
         strcpy(romfile, File_name);
         strcat(romfile, ".bin");
         romfd = open(romfile, O_RDWR|O_CREAT, 0644);
@@ -1007,12 +1005,11 @@ main(argc,argv)
         }
 
         romsize = DEFROMSIZE;
-        
+
         ftruncate(romfd, romsize);
-        rom = mmap(NULL, romsize, PROT_WRITE|PROT_READ, MAP_SHARED,
-                   romfd, 0);
-        if(rom == MAP_FAILED) {
-            fprintf(stderr,"Cannot mmap %s for output\n",romfile);
+        rom = malloc(romsize);
+        if(rom == NULL) {
+            fprintf(stderr,"Cannot allocate ROM image.\n");
             close(romfd);
             unlink(romfile);
             exit(-1);
@@ -1052,7 +1049,7 @@ main(argc,argv)
           unlink(romfile);
 	  exit(-1);
 	} else {
-            munmap(rom, romsize);
+            write(romfd, rom, romsize);
             ftruncate(romfd, MaxDotValue);
             close(romfd);
         }
