@@ -7,8 +7,9 @@ This source is canonically available as a git tree from
 http://nelhage.com/git/bemu.git/, or as a tarball from
 http://nelhage.com/files/bemu.tgz (not guaranteed to be up-to-date)
 
-It should work on just about any modern Linux system; I've tested it
-on Athena and it works fine there.
+It should work on just about any modern Linux or Intel OS X system,
+although it's better tested on Linux. I've tested it on Athena and it
+works fine there.
 
 To run the self-tests, `make test'; To run the lab8 OS, `make
 run-lab8'.
