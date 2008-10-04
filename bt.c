@@ -505,21 +505,18 @@ void bt_run() {
     }
 
     if(!bt_stack_base) {
-        bt_stack_base = malloc(BT_STACK_SIZE);
+        bt_stack_base = valloc(BT_STACK_SIZE);
         if(bt_stack_base == NULL) {
             panic("Unable to allocate BT stack!\n");
         }
     }
-    bt_stack_base += BT_STACK_SIZE - sizeof(uint32_t);
-    *((uint32_t*)bt_stack_base) = 0;
+    bt_stack_base += BT_STACK_SIZE;
 
     if(!frag_cache) {
-        frag_cache = malloc(BT_CACHE_SIZE + PGSIZE);
+        frag_cache = valloc(BT_CACHE_SIZE);
         if(frag_cache == NULL) {
             panic("Could not allocate BT cache!");
         }
-        /* Page align */
-        frag_cache = (void*)(((uint32_t)frag_cache + PGSIZE) & ~(PGSIZE-1));
         if(mprotect(frag_cache, BT_CACHE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC)) {
             perror("mprotect");
             panic("Unable to mprotect() the BT cache!");
