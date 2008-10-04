@@ -6,14 +6,14 @@ NONDET=0        # Set for tests that are nondeterministic
 run_one() {
     file="$1"
 
-    bt_run=$($BEMU "tests/$file.bin" -o "$OPTIONS" -d 2>&1)
+    bt_run=$($BEMU -o "$OPTIONS" -d  "tests/$file.bin" 2>&1)
     err="$?"
     if [ "$err" -ne 0 ]; then
         echo "[$file] FAIL: return code $err" >&2
         echo "$bt_run";
         exit 1;
     fi 
-    em_run=$($BEMU "tests/$file.bin" -o "$OPTIONS" -de 2>&1)
+    em_run=$($BEMU -o "$OPTIONS" -de "tests/$file.bin" 2>&1)
 
     shift
     while [ $# -gt 0 ]; do
