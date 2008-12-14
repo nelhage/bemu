@@ -28,8 +28,9 @@ void* console_process(void *arg UNUSED) {
         }
         LOG("Keyboard interrupt!\n");
         pthread_mutex_lock(&console_mutex);
-        set_interrupt(INT_KBD);
-        read(0, &kbd_char, 1);
+        if(read(0, &kbd_char, 1) > 0) {
+            set_interrupt(INT_KBD);
+        }
         pthread_cond_wait(&console_cond, &console_mutex);
         pthread_mutex_unlock(&console_mutex);
     }
