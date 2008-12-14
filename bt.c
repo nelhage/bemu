@@ -377,6 +377,24 @@ inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
     *pbuf = buf;
 }
 
+inline void bt_translate_interp(ccbuff *pbuf, byteptr pc) {
+    // Save the PC into CPU.PC
+    X86_MOV_IMM32_RM32(*pbuf, MOD_INDIR_DISP32, REG_EBP);
+    X86_DISP32(*pbuf, offsetof(beta_cpu, PC));
+    X86_IMM32(*pbuf, pc);
+
+    // Call bt_step_one
+    X86_CALL_REL32(*pbuf);
+    X86_REL32(*pbuf, bcpu_step_one);
+
+    // Save CPU.PC back into %eax
+    X86_MOV_RM32_R32(*pbuf, MOD_INDIR_DISP32, REG_EBP, REG_EAX);
+    X86_DISP32(*pbuf, offsetof(beta_cpu, PC));
+
+    X86_CALL_REL32(*pbuf);
+    X86_REL32(*pbuf, bt_continue_chain);
+}
+
 inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
     ccbuff buf = *pbuf;
 #define SAVE_PC                                                 \
@@ -443,6 +461,9 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
 
         X86_JMP_REL32(buf);
         X86_REL32(buf, bt_continue);
+        break;
+    case OP_CALLOUT:
+        bt_translate_interp(&buf, pc);
         break;
     default:
         /* If we made it here, it's an ILLOP */
@@ -527,15 +548,14 @@ void bt_run() {
     bt_translate_and_run(NULL);
 }
 
-inline bool bt_can_translate(bdecode *inst) {
+inline bool bt_ends_frag(bdecode *inst) {
     if(!decode_valid(inst)) {
-        return 0;
+        return 1;
     }
-    return OP_CLASS(inst->opcode) == CLASS_ARITH ||
-        OP_CLASS(inst->opcode) == CLASS_ARITHC ||
-        inst->opcode == OP_ST ||
-        inst->opcode == OP_LD ||
-        inst->opcode == OP_LDR;
+    return inst->opcode == OP_JMP ||
+        inst->opcode == OP_BT ||
+        inst->opcode == OP_BF ||
+        inst->opcode == OP_CALLOUT;
 }
 
 void bt_translate_and_run(ccbuff chainptr) {
@@ -545,50 +565,40 @@ void bt_translate_and_run(ccbuff chainptr) {
     uint32_t pc;
     int i = 0;
 
-
-    while(TRUE) {
-        pc = CPU.PC;
-
-        cfrag = bt_find_frag(pc);
-
-        if(!cfrag) {
-            frag.start_pc = pc;
-            frag.tail = FALSE;
-            for(i = 0; i < MAX_FRAG_SIZE; i++) {
-                inst = beta_read_mem32(pc);
-                decode_op(inst, &frag.insts[i]);
-                if(!bt_can_translate(&frag.insts[i])) {
-                    if(frag.insts[i].opcode != OP_CALLOUT) {
-                        frag.tail = TRUE;
-                    }
-                    break;
-                }
-                pc += 4;
-            }
-            if (frag.tail || i > 0) {
-                frag.ninsts = i;
-                cfrag = bt_alloc_cfrag(TRUE);
-                frag_alloc = bt_translate_frag(cfrag, &frag);
-                bt_insert_frag(cfrag);
-            }
-        } else {
-            LOG("Cache HIT at pc 0x%08x", pc);
-        }
-
-        if(cfrag) {
-            if(chainptr) {
-                chainptr -= 5;
-                X86_JMP_REL32(chainptr);
-                X86_REL32(chainptr, cfrag->code);
-                LOG("Chaining to frag 0x%08x", cfrag->start_pc);
-            }
-            bt_enter(cfrag->code);
-        } else {
-            chainptr = NULL;
-            bcpu_execute_one(&frag.insts[0]);
-            if(CPU.halt) {
-                longjmp(bt_exit_buf, 1);
-            }
-        }
+    if(CPU.halt) {
+        longjmp(bt_exit_buf, 1);
     }
+
+    pc = CPU.PC;
+
+    cfrag = bt_find_frag(pc);
+
+    if(!cfrag) {
+        frag.start_pc = pc;
+        frag.tail = FALSE;
+        for(i = 0; i < MAX_FRAG_SIZE; i++) {
+            inst = beta_read_mem32(pc);
+            decode_op(inst, &frag.insts[i]);
+            if(bt_ends_frag(&frag.insts[i])) {
+                frag.tail = TRUE;
+                break;
+            }
+            pc += 4;
+        }
+        frag.ninsts = i;
+        cfrag = bt_alloc_cfrag(TRUE);
+        frag_alloc = bt_translate_frag(cfrag, &frag);
+        bt_insert_frag(cfrag);
+    } else {
+        LOG("Cache HIT at pc 0x%08x", pc);
+    }
+
+    if(chainptr) {
+        chainptr -= 5;
+        X86_JMP_REL32(chainptr);
+        X86_REL32(chainptr, cfrag->code);
+        LOG("Chaining to frag 0x%08x", cfrag->start_pc);
+    }
+
+    bt_enter(cfrag->code);
 }
