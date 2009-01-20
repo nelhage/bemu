@@ -3,9 +3,8 @@ Beta [1] processor to the i386. It supports clock and keyboard
 interrupts, and correctly executes lab6.uasm, bench[1-4].uasm, and
 litmus.uasm, as well as Lab 8's operating system [2].
 
-This source is canonically available as a git tree from
-http://nelhage.com/git/bemu.git/, or as a tarball from
-http://nelhage.com/files/bemu.tgz (not guaranteed to be up-to-date)
+This source is canonically available from github at
+<http://github.com/nelhage/bemu/>.
 
 It should work on just about any modern Linux or Intel OS X system,
 although it's better tested on Linux. I've tested it on Athena and it
