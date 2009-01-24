@@ -15,13 +15,6 @@
 #define BEMU_USE_LDT
 #endif
 
-#include "bdecode.h"
-#include "bcpu.h"
-#include "x86.h"
-#include "bt.h"
-#include "bclock.h"
-#include "bconsole.h"
-
 #define offsetof(TYPE, MEMBER)  __builtin_offsetof (TYPE, MEMBER)
 
 #ifdef DEBUG
@@ -36,5 +29,12 @@
 void __panic(char *file, int line, char *fmt, ...) __attribute__((noreturn));
 
 #define UNUSED __attribute__((unused))
+
+#include "bdecode.h"
+#include "bcpu.h"
+#include "x86.h"
+#include "bt.h"
+#include "bclock.h"
+#include "bconsole.h"
 
 #endif

@@ -58,10 +58,16 @@ static uint32_t beta_read_mem32(beta_cpu *cpu, byteptr addr) __attribute__((alwa
 static void beta_write_mem32(beta_cpu *cpu, byteptr addr, uint32_t val) __attribute__((always_inline));
 
 static inline uint32_t beta_read_mem32(beta_cpu *cpu, byteptr addr) {
+    if((addr & ~PC_SUPERVISOR) >= cpu->memsize) {
+        panic("Illegal memory reference %08x", addr);
+    }
     return cpu->memory[BYTE2WORDADDR(addr & ~PC_SUPERVISOR)];
 }
 
 static inline void beta_write_mem32(beta_cpu *cpu, byteptr addr, uint32_t val) {
+    if((addr & ~PC_SUPERVISOR) >= cpu->memsize) {
+        panic("Illegal memory write %08x", addr);
+    }
     cpu->memory[BYTE2WORDADDR(addr & ~PC_SUPERVISOR)] = val;
 }
 
