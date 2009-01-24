@@ -1,6 +1,8 @@
 #include "bemu.h"
 
 #include <setjmp.h>
+#include <signal.h>
+#include <ucontext.h>
 
 #define PAGE_SIZE       0x1000
 #define PAGE_SHIFT      12
@@ -15,16 +17,7 @@ int modify_ldt(int func, struct user_desc *ptr, unsigned long bytes) {
 }
 #endif
 
-/*
- * In DEBUG mode, we call out to LOG(), which does things like printf
- * which expect a lot of stack to work with. If we're just running our
- * code, 8k is plenty.
- */
-#ifdef DEBUG
 #define BT_STACK_SIZE  (1 << 16)
-#else
-#define BT_STACK_SIZE  (1 << 13)
-#endif
 
 /* 1MB translation cache */
 #define BT_CACHE_SIZE  (1 << 20)
@@ -129,6 +122,22 @@ int bt_setup_cpu_segment() {
     return segment;
 }
 #endif
+
+void bt_segv(int signal UNUSED, siginfo_t *info UNUSED, void *ctx UNUSED) {
+    panic("Illegal memory reference (UNKNOWN ADDRESS)");
+}
+
+void bt_setup_segv_handler() {
+    struct sigaction action = {
+        .sa_sigaction = bt_segv,
+        .sa_flags     = SA_SIGINFO
+    };
+    sigemptyset(&action.sa_mask);
+    if(sigaction(SIGSEGV, &action, NULL) < 0) {
+        perror("sigaction");
+        panic("Unable to set up SEGV signal handler!");
+    }
+}
 
 /* Actual binary translation */
 
@@ -605,6 +614,7 @@ void bt_run() {
 
 #ifdef BEMU_USE_LDT
     CPU.segment = bt_setup_cpu_segment();
+    bt_setup_segv_handler();
 #endif
 
     bt_translate_and_run(NULL);

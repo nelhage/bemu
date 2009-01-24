@@ -2,13 +2,14 @@
 BEMU=./bemu
 OPTIONS=""
 NONDET=0        # Set for tests that are nondeterministic
+FAIL=
 
 run_one() {
     file="$1"
 
     bt_run=$($BEMU -o "$OPTIONS" -d  "tests/$file.bin" 2>&1)
     err="$?"
-    if [ "$err" -ne 0 ]; then
+    if [ -z "$FAIL" -a "$err" -ne 0 ]; then
         echo "[$file] FAIL: return code $err" >&2
         echo "$bt_run";
         exit 1;
@@ -49,6 +50,9 @@ run_one bench4   "[00] 991727a0 [01] 5096a491 [02] 00000000 [03] 00000000"
 run_one supervisor "[00] ffffabcd"
 run_one align    "[00] ffffabcd"
 run_one qsort    "[00] 00001111"
+NONDET=1
+FAIL=1
+run_one trap     "Illegal memory reference"
 
 ulimit -t 2
 OPTIONS="clock"

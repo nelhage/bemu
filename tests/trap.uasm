@@ -1,0 +1,13 @@
+.include beta.uasm
+
+. = 0
+
+        BR(start)
+illop:
+        HALT()
+fail:
+        HALT()
+start:
+
+        LD(R31, 0x2000, R1)
+        HALT()
