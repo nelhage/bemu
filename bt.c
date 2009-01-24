@@ -445,6 +445,10 @@ inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
 }
 
 inline void bt_translate_interp(ccbuff *pbuf, byteptr pc) {
+    // Align %esp on a 16-byte boundary to placate OS X
+    X86_SUB_IMM32_RM32(*pbuf, MOD_REG, REG_ESP);
+    X86_IMM32(*pbuf, 4);
+
     // Save the PC into CPU.PC
     X86_MOV_IMM32_RM32(*pbuf, MOD_INDIR_DISP32, REG_EBP);
     X86_DISP32(*pbuf, offsetof(beta_cpu, PC));
@@ -453,6 +457,9 @@ inline void bt_translate_interp(ccbuff *pbuf, byteptr pc) {
     // Call bt_step_one
     X86_CALL_REL32(*pbuf);
     X86_REL32(*pbuf, bcpu_step_one);
+
+    X86_ADD_IMM32_RM32(*pbuf, MOD_REG, REG_ESP);
+    X86_IMM32(*pbuf, 4);
 
     // Save CPU.PC back into %eax
     X86_MOV_RM32_R32(*pbuf, MOD_INDIR_DISP32, REG_EBP, REG_EAX);
