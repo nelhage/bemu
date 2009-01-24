@@ -132,6 +132,8 @@ int main(int argc, char **argv)
         perror("mmap");
         exit(-1);
     }
+    CPU.memsize = stat.st_size;
+
     close(fd);
 
     bcpu_reset();

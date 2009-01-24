@@ -2,6 +2,16 @@
 
 #include <setjmp.h>
 
+#ifdef __linux__
+#include <sys/syscall.h>
+#include <asm/ldt.h>
+#include <unistd.h>
+
+int modify_ldt(int func, struct user_desc *ptr, unsigned long bytes) {
+    return syscall(SYS_modify_ldt, func, ptr, bytes);
+}
+#endif
+
 /*
  * In DEBUG mode, we call out to LOG(), which does things like printf
  * which expect a lot of stack to work with. If we're just running our
@@ -90,6 +100,31 @@ void bt_insert_frag(compiled_frag *frag) {
     frag_hash[HASH_PC(frag->start_pc)] = frag;
     frag->hash_next = old;
 }
+
+#ifdef __linux__
+int bt_setup_cpu_segment() {
+    int segment = 0;
+    struct user_desc segdesc = {
+        .entry_number    = segment,
+        .base_addr       = (uint32_t)CPU.memory,
+        .limit           = (CPU.memsize >> 12),
+        .seg_32bit       = 0,
+        .contents        = 0,
+        .read_exec_only  = 0,
+        .limit_in_pages  = 1,
+        .seg_not_present = 0,
+        .useable         = 0
+    };
+    if(modify_ldt(1, &segdesc, sizeof(segdesc)) < 0) {
+        perror("modify_ldt");
+        panic("Unable to modify_ldt to initialize BCPU LDT!");
+    }
+
+    LOG("Initialized segment %%fs=%02x", segment);
+
+    return segment;
+}
+#endif
 
 /* Actual binary translation */
 
@@ -308,8 +343,13 @@ inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_AND_IMM32_RM32(buf, MOD_REG, REG_EAX);
         X86_IMM32(buf, ~(PC_SUPERVISOR | 0x3));
 
+#ifdef BEMU_USE_LDT
+        X86_BYTE(buf, PREFIX_SEG_FS);
+        X86_MOV_R32_RM32(buf, REG_ECX, MOD_INDIR, REG_EAX);
+#else
         X86_MOV_R32_RM32(buf, REG_ECX, MOD_INDIR_DISP32, REG_EAX);
         X86_DISP32(buf, CPU.memory);
+#endif
         break;
     case OP_LD:
         /* mov regs[RA], %eax
@@ -328,15 +368,29 @@ inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_AND_IMM32_RM32(buf, MOD_REG, REG_EAX);
         X86_IMM32(buf, ~(PC_SUPERVISOR | 0x3));
 
+#ifdef BEMU_USE_LDT
+        X86_BYTE(buf, PREFIX_SEG_FS);
+        X86_MOV_RM32_R32(buf, MOD_INDIR, REG_EAX, REG_EAX);
+#else
         X86_MOV_RM32_R32(buf, MOD_INDIR_DISP32, REG_EAX, REG_EAX);
         X86_DISP32(buf, CPU.memory);
+#endif
 
         WRITE_BETA_REG(buf, REG_EAX, inst->rc);
         break;
     case OP_LDR:
+#ifdef BEMU_USE_LDT
+        X86_BYTE(buf, PREFIX_SEG_FS);
+#endif
+
         X86_MOV_RM32_R32(buf, MOD_INDIR, REG_DISP32, REG_EAX);
+
+#ifdef BEMU_USE_LDT
+        X86_DISP32(buf, ((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03)));
+#else
         X86_DISP32(buf, ((uint32_t)CPU.memory) +
                    ((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03)));
+#endif
         WRITE_BETA_REG(buf, REG_EAX, inst->rc);
         break;
     default:
@@ -545,6 +599,10 @@ void bt_run() {
         bt_clear_cache();
     }
 
+#ifdef BEMU_USE_LDT
+    CPU.segment = bt_setup_cpu_segment();
+#endif
+
     bt_translate_and_run(NULL);
 }
 
@@ -600,5 +658,6 @@ void bt_translate_and_run(ccbuff chainptr) {
         LOG("Chaining to frag 0x%08x", cfrag->start_pc);
     }
 
+    __asm__("movw %%ax, %%fs\n" :: "a"(CPU.segment<<3|0x4));
     bt_enter(cfrag->code);
 }

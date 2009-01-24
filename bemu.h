@@ -11,6 +11,10 @@
 #include <string.h>
 #include <stdarg.h>
 
+#ifdef __linux__
+#define BEMU_USE_LDT
+#endif
+
 #include "bdecode.h"
 #include "bcpu.h"
 #include "x86.h"
