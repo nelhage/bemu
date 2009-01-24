@@ -2,6 +2,9 @@
 
 #include <setjmp.h>
 
+#define PAGE_SIZE       0x1000
+#define PAGE_SHIFT      12
+
 #ifdef __linux__
 #include <sys/syscall.h>
 #include <asm/ldt.h>
@@ -107,7 +110,6 @@ int bt_setup_cpu_segment() {
     struct user_desc segdesc = {
         .entry_number    = segment,
         .base_addr       = (uint32_t)CPU.memory,
-        .limit           = (CPU.memsize >> 12),
         .seg_32bit       = 0,
         .contents        = 0,
         .read_exec_only  = 0,
@@ -115,6 +117,8 @@ int bt_setup_cpu_segment() {
         .seg_not_present = 0,
         .useable         = 0
     };
+    segdesc.limit = (((CPU.memsize + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)) >> PAGE_SHIFT) - 1;
+
     if(modify_ldt(1, &segdesc, sizeof(segdesc)) < 0) {
         perror("modify_ldt");
         panic("Unable to modify_ldt to initialize BCPU LDT!");
