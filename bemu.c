@@ -127,8 +127,8 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
-    if((beta_mem = mmap(NULL, stat.st_size, PROT_READ|PROT_WRITE,
-                        MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
+    if((CPU.memory = mmap(NULL, stat.st_size, PROT_READ|PROT_WRITE,
+                          MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
         perror("mmap");
         exit(-1);
     }
@@ -171,7 +171,7 @@ int main(int argc, char **argv)
 
     console_close();
 
-    munmap(beta_mem, stat.st_size);
+    munmap(CPU.memory, stat.st_size);
 
     return 0;
 }

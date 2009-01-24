@@ -29,10 +29,10 @@ typedef struct {
     uint32_t pending_interrupts;
     uint32_t inst_count;
     bool     halt;
+    uint32_t *memory;
 } beta_cpu;
 
 extern beta_cpu CPU;
-extern uint32_t *beta_mem;
 
 /*
  * We address memory by words, internally, but the beta uses
@@ -50,15 +50,15 @@ void bcpu_execute_one(bdecode *decode);
 void bcpu_reset();
 void bcpu_step_one();
 
-static uint32_t beta_read_mem32(byteptr addr) __attribute__((always_inline));
-static void beta_write_mem32(byteptr addr, uint32_t val) __attribute__((always_inline));
+static uint32_t beta_read_mem32(beta_cpu *cpu, byteptr addr) __attribute__((always_inline));
+static void beta_write_mem32(beta_cpu *cpu, byteptr addr, uint32_t val) __attribute__((always_inline));
 
-static inline uint32_t beta_read_mem32(byteptr addr) {
-    return beta_mem[BYTE2WORDADDR(addr & ~PC_SUPERVISOR)];
+static inline uint32_t beta_read_mem32(beta_cpu *cpu, byteptr addr) {
+    return cpu->memory[BYTE2WORDADDR(addr & ~PC_SUPERVISOR)];
 }
 
-static inline void beta_write_mem32(byteptr addr, uint32_t val) {
-    beta_mem[BYTE2WORDADDR(addr & ~PC_SUPERVISOR)] = val;
+static inline void beta_write_mem32(beta_cpu *cpu, byteptr addr, uint32_t val) {
+    cpu->memory[BYTE2WORDADDR(addr & ~PC_SUPERVISOR)] = val;
 }
 
 #endif

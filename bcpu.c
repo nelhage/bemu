@@ -103,16 +103,16 @@ void bcpu_execute_one(bdecode *decode) {
 
     case OP_LD:
         LOG("LD from byte %08x", CPU.regs[decode->ra] + decode->imm);
-        write_reg(decode->rc, beta_read_mem32(CPU.regs[decode->ra] + decode->imm));
+        write_reg(decode->rc, beta_read_mem32(&CPU, CPU.regs[decode->ra] + decode->imm));
         break;
 
     case OP_ST:
         LOG("ST to byte %08x", CPU.regs[decode->ra] + decode->imm);
-        beta_write_mem32(CPU.regs[decode->ra] + decode->imm, CPU.regs[decode->rc]);
+        beta_write_mem32(&CPU, CPU.regs[decode->ra] + decode->imm, CPU.regs[decode->rc]);
         break;
 
     case OP_LDR:
-        write_reg(decode->rc, beta_read_mem32(CPU.PC + WORD2BYTEADDR(decode->imm)));
+        write_reg(decode->rc, beta_read_mem32(&CPU, CPU.PC + WORD2BYTEADDR(decode->imm)));
         break;
 
     case OP_CALLOUT:
@@ -161,7 +161,7 @@ void bcpu_step_one()
     bdecode decode;
     uint32_t op;
 
-    op = beta_read_mem32(CPU.PC);
+    op = beta_read_mem32(&CPU, CPU.PC);
     
     decode_op(op, &decode);
     LOG("[PC=%08x bits=%08x] %s", CPU.PC, op, pp_decode(&decode));

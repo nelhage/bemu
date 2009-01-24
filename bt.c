@@ -309,7 +309,7 @@ inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_IMM32(buf, ~(PC_SUPERVISOR | 0x3));
 
         X86_MOV_R32_RM32(buf, REG_ECX, MOD_INDIR_DISP32, REG_EAX);
-        X86_DISP32(buf, beta_mem);
+        X86_DISP32(buf, CPU.memory);
         break;
     case OP_LD:
         /* mov regs[RA], %eax
@@ -329,13 +329,13 @@ inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_IMM32(buf, ~(PC_SUPERVISOR | 0x3));
 
         X86_MOV_RM32_R32(buf, MOD_INDIR_DISP32, REG_EAX, REG_EAX);
-        X86_DISP32(buf, beta_mem);
+        X86_DISP32(buf, CPU.memory);
 
         WRITE_BETA_REG(buf, REG_EAX, inst->rc);
         break;
     case OP_LDR:
         X86_MOV_RM32_R32(buf, MOD_INDIR, REG_DISP32, REG_EAX);
-        X86_DISP32(buf, ((uint32_t)beta_mem) +
+        X86_DISP32(buf, ((uint32_t)CPU.memory) +
                    ((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03)));
         WRITE_BETA_REG(buf, REG_EAX, inst->rc);
         break;
@@ -577,7 +577,7 @@ void bt_translate_and_run(ccbuff chainptr) {
         frag.start_pc = pc;
         frag.tail = FALSE;
         for(i = 0; i < MAX_FRAG_SIZE; i++) {
-            inst = beta_read_mem32(pc);
+            inst = beta_read_mem32(&CPU, pc);
             decode_op(inst, &frag.insts[i]);
             if(bt_ends_frag(&frag.insts[i])) {
                 frag.tail = TRUE;
