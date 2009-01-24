@@ -26,14 +26,12 @@ typedef struct {
     /* This layout is hard-coded into bt.S */
     uint32_t regs[32];
     uint32_t PC;
+    uint32_t *memory;
+    uint32_t memsize;
+    int      segment;
     uint32_t pending_interrupts;
     uint32_t inst_count;
     bool     halt;
-    uint32_t *memory;
-    uint32_t memsize;
-#ifdef BEMU_USE_LDT
-    int      segment;
-#endif
 } beta_cpu;
 
 extern beta_cpu CPU;

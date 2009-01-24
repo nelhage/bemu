@@ -11,10 +11,6 @@
 #include <string.h>
 #include <stdarg.h>
 
-#ifdef __linux__
-#define BEMU_USE_LDT
-#endif
-
 #define offsetof(TYPE, MEMBER)  __builtin_offsetof (TYPE, MEMBER)
 
 #ifdef DEBUG

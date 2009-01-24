@@ -15,6 +15,9 @@
 int modify_ldt(int func, struct user_desc *ptr, unsigned long bytes) {
     return syscall(SYS_modify_ldt, func, ptr, bytes);
 }
+#elif defined(__APPLE__)
+#include <architecture/i386/table.h>
+#include <i386/user_ldt.h>
 #endif
 
 #define BT_STACK_SIZE  (1 << 16)
@@ -97,31 +100,65 @@ void bt_insert_frag(compiled_frag *frag) {
     frag->hash_next = old;
 }
 
+static int bt_alloc_segdesc(uint32_t base, uint32_t pages);
+
 #ifdef __linux__
-int bt_setup_cpu_segment() {
+static int bt_alloc_segdesc(uint32_t base, uint32_t pages)
+{
+    /* FIXME to actually allocate an unused descriptor */
     int segment = 0;
     struct user_desc segdesc = {
         .entry_number    = segment,
-        .base_addr       = (uint32_t)CPU.memory,
+        .base_addr       = base,
+        .limit           = pages,
         .seg_32bit       = 0,
         .contents        = 0,
         .read_exec_only  = 0,
         .limit_in_pages  = 1,
         .seg_not_present = 0,
-        .useable         = 0
+        .useable         = 0,
     };
-    segdesc.limit = (((CPU.memsize + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)) >> PAGE_SHIFT) - 1;
 
     if(modify_ldt(1, &segdesc, sizeof(segdesc)) < 0) {
         perror("modify_ldt");
         panic("Unable to modify_ldt to initialize BCPU LDT!");
     }
 
-    LOG("Initialized segment %%fs=%02x", segment);
+    return segment;
+}
+#elif defined(__APPLE__)
+static  int bt_alloc_segdesc(uint32_t base, uint32_t pages)
+{
+    int segment;
+    union ldt_entry desc = {
+        .data = {
+            .limit00 = (pages & 0xffff),
+            .base00  = (base  & 0xffff),
+            .base16  = (base  >> 16) & 0xff,
+            .type    = 0x12,
+            .dpl     = 0x3,
+            .present = 1,
+            .limit16 = (pages >> 16) & 0xff,
+            .granular = 1,
+            .base24  = base >> 24
+        }
+    };
 
+    segment = i386_set_ldt(LDT_AUTO_ALLOC, &desc, 1);
+    if(segment < 0) {
+        perror("i386_set_ldt");
+        panic("Unable to initialize the guest CPU LDT!");
+    }
     return segment;
 }
 #endif
+
+int bt_setup_cpu_segment() {
+    uint32_t pages;
+
+    pages = (((CPU.memsize + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)) >> PAGE_SHIFT) - 1;
+    return bt_alloc_segdesc((uint32_t)CPU.memory, pages);
+}
 
 void bt_segv(int signal UNUSED, siginfo_t *info UNUSED, void *ctx UNUSED) {
     panic("Illegal memory reference (UNKNOWN ADDRESS)");
@@ -356,13 +393,9 @@ inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_AND_IMM32_RM32(buf, MOD_REG, REG_EAX);
         X86_IMM32(buf, ~(PC_SUPERVISOR | 0x3));
 
-#ifdef BEMU_USE_LDT
         X86_BYTE(buf, PREFIX_SEG_FS);
         X86_MOV_R32_RM32(buf, REG_ECX, MOD_INDIR, REG_EAX);
-#else
-        X86_MOV_R32_RM32(buf, REG_ECX, MOD_INDIR_DISP32, REG_EAX);
-        X86_DISP32(buf, CPU.memory);
-#endif
+
         break;
     case OP_LD:
         /* mov regs[RA], %eax
@@ -381,29 +414,17 @@ inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_AND_IMM32_RM32(buf, MOD_REG, REG_EAX);
         X86_IMM32(buf, ~(PC_SUPERVISOR | 0x3));
 
-#ifdef BEMU_USE_LDT
         X86_BYTE(buf, PREFIX_SEG_FS);
         X86_MOV_RM32_R32(buf, MOD_INDIR, REG_EAX, REG_EAX);
-#else
-        X86_MOV_RM32_R32(buf, MOD_INDIR_DISP32, REG_EAX, REG_EAX);
-        X86_DISP32(buf, CPU.memory);
-#endif
 
         WRITE_BETA_REG(buf, REG_EAX, inst->rc);
         break;
     case OP_LDR:
-#ifdef BEMU_USE_LDT
+
         X86_BYTE(buf, PREFIX_SEG_FS);
-#endif
-
         X86_MOV_RM32_R32(buf, MOD_INDIR, REG_DISP32, REG_EAX);
-
-#ifdef BEMU_USE_LDT
         X86_DISP32(buf, ((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03)));
-#else
-        X86_DISP32(buf, ((uint32_t)CPU.memory) +
-                   ((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03)));
-#endif
+
         WRITE_BETA_REG(buf, REG_EAX, inst->rc);
         break;
     default:
@@ -619,10 +640,8 @@ void bt_run() {
         bt_clear_cache();
     }
 
-#ifdef BEMU_USE_LDT
     CPU.segment = bt_setup_cpu_segment();
     bt_setup_segv_handler();
-#endif
 
     bt_translate_and_run(NULL);
 }
