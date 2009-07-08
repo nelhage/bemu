@@ -42,13 +42,12 @@ void console_open(bool interrupt) {
     struct termios termios;
     int flags;
     /* Disable echo */
-    if(tcgetattr(0, &saved_termios) < 0) {
-        panic("Can't tcgettattr(0): %s", strerror(errno));
-    }
-    termios = saved_termios;
-    termios.c_lflag &= ~(ECHO|ICANON);
-    if(tcsetattr(0, TCSANOW, &termios) < 0) {
-        panic("Can't tcsettattr(0): %s", strerror(errno));
+    if(tcgetattr(0, &saved_termios) == 0) {
+        termios = saved_termios;
+        termios.c_lflag &= ~(ECHO|ICANON);
+        if(tcsetattr(0, TCSANOW, &termios) < 0) {
+            panic("Can't tcsettattr(0): %s", strerror(errno));
+        }
     }
 
     signal(SIGIO, SIG_IGN);
