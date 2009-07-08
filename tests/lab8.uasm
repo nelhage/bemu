@@ -190,7 +190,7 @@ SVCTbl:	UUO(HaltH)		| SVC(0): User-mode HALT instruction
 	UUO(YieldH)		| SVC(7): Yield()
 	UUO(MouseH)		| SVC(8): Mouse()
 	UUO(Mouse_NBH)		| SVC(9): Mouse_NB()
-	BAD()			| SVC(10-15) are not yet defined
+	UUO(ShutdownH)		| SVC(10): Shutdown()
 	BAD()
 	BAD()
 	BAD()
@@ -201,7 +201,7 @@ SVCTbl:	UUO(HaltH)		| SVC(0): User-mode HALT instruction
 ||| Keyboard handling
 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
-	KeyBuffSize = 16
+	KeyBuffSize = 32
 KeyBuff:                                | Keyboard buffer
         STORAGE(KeyBuffSize)
 
@@ -319,6 +319,9 @@ I_Mouse:
 	ST(r0, MouseData)
 	LD(UserMState, r0)
 	JMP(XP)
+
+ShutdownH:
+        HALT()
 
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 ||| Timesharing: 3-process round-robin scheduler
@@ -603,6 +606,7 @@ WrEnd:
 .macro Yield()	SVC(7)		| Give up remaining quantum
 .macro Mouse()	SVC(8)		| Get the mouse position
 .macro Mouse_NB()	SVC(9)	| Non-blocking mouse IO
+.macro Shutdown()   SVC(10)     | Halt the computer
 	
 ||| Semaphore macros.
 ||| Wait(S) waits on semaphore S; Signal(S) signals on S.
@@ -638,6 +642,13 @@ P0Start:WrMsg()
 	.text "Start typing, Bunky.\n\n"
 
 P0Read:	Wait(Prompt)		| Wait until P1 has caught up...
+
+        LD(P0EOF, r0)
+        BF(r0, P0Prompt)
+
+        Shutdown()
+
+P0Prompt:
 	WrMsg()			| First a newline character, then
 	.text "\n"
 	LD(Count3, r0)		| print out the quantum count
@@ -651,14 +662,22 @@ P0Read:	Wait(Prompt)		| Wait until P1 has caught up...
 	Yield()
 
 	GetKey()		| read next character
+        CMPEQC(r0,-1,r1)        | End of file?
+        BT(r1, P0Done)
+
 	Wait(MouseWait)
 	BR(P0PrCh)
 
 P0RdCh: 
 	GetKey()
-P0PrCh:	
-	WrCh()			| echo back to user
+
+        CMPEQC(r0,-1,r1)        | End of file?
+        BT(r1, P0Done)
+P0PrCh:
+
+	| WrCh()  		| echo back to user
 	CALL(UCase)		| Convert it to upper case,
+
 	ST(r0,0,r3)		| Store it in buffer.
 	ADDC(r3,4,r3)		| Incr pointer to next char...
 
@@ -680,8 +699,18 @@ P0PutC: LD(r2,0,r0)		| read next char from buf,
 	ADDC(r2,4,r2)		| Else move to next char.
 	BR(P0PutC)
 
+P0Done: CMPEQC(r3, P0Line, r1)
+        BF(r1, P0DoneNL)
+        Shutdown()
+P0DoneNL:
+        CMOVE(1, r0)
+        ST(r0, P0EOF)
+        CMOVE(0xA,r0)
+        BR(P0PrCh)
+
 P0Line: STORAGE(100)		| Line buffer.
 P0LinP: LONG(P0Line)
+P0EOF : LONG(0)
 
 P0Stack:
 	STORAGE(256)
