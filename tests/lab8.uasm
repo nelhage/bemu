@@ -675,7 +675,7 @@ P0RdCh:
         BT(r1, P0Done)
 P0PrCh:
 
-	| WrCh()  		| echo back to user
+	WrCh()  		| echo back to user
 	CALL(UCase)		| Convert it to upper case,
 
 	ST(r0,0,r3)		| Store it in buffer.
