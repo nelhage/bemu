@@ -108,7 +108,7 @@ typedef enum {
 
 #define X86_SIB(ptr, scale, index, base) ({     \
             X86_BYTE(ptr, SIB(scale, index, base));     \
-        });
+        })
 
 /*
  * We use the AT&T convention of SRC_DST.

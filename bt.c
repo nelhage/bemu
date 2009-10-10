@@ -227,14 +227,14 @@ void bt_setup_segv_handler() {
         X86_MOV_RM32_R32(buf, MOD_INDIR_DISP8, REG_EBP, x86reg);        \
         X86_DISP8(buf, offsetof(beta_cpu, regs) + 4*__reg);             \
     }                                                                   \
-        });
+        })
 #define WRITE_BETA_REG(buf, x86reg, breg) ({                            \
     uint8_t __reg = (breg);                                             \
     if(__reg != 31) {                                                   \
         X86_MOV_R32_RM32(buf, x86reg, MOD_INDIR_DISP8, REG_EBP);        \
         X86_DISP8(buf, offsetof(beta_cpu, regs) + 4*__reg);             \
     }                                                                   \
-        });
+        })
 
 inline void bt_translate_arith(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) {
     ccbuff buf = *pbuf;
