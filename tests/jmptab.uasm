@@ -1,0 +1,60 @@
+.include beta.uasm
+
+. = 0
+BR(start)
+
+. = 0x100
+
+start:
+        MOVE(R31, R0)
+
+        BR(loop)
+
+loop:
+        LDR(_table, R1)
+        MULC(R0, 4, R2)
+        ADD(R2, R1, R1)
+        LD(R1, 0, R1)
+        JMP(R1)
+
+l0:
+        CMOVE('H', R8)
+        BR(next)
+l1:
+        CMOVE('e', R8)
+        BR(next)
+l2:
+        CMOVE('l', R8)
+        BR(next)
+l3:
+        CMOVE('l', R8)
+        BR(next)
+l4:
+        CMOVE('o', R8)
+        BR(next)
+l5:
+        CMOVE('.', R8)
+        BR(next)
+l6:
+        CMOVE(10, R8)
+        BR(next)
+l7:     HALT()
+
+next:
+        MOVE(R0, R1)
+        MOVE(R8, R0)
+        WRCHAR()
+        ADDC(R1, 1, R0)
+        BR(loop)
+
+_table:
+        LONG(table)
+table:
+        LONG (l0 + PC_SUPERVISOR)
+        LONG (l1 + PC_SUPERVISOR)
+        LONG (l2 + PC_SUPERVISOR)
+        LONG (l3 + PC_SUPERVISOR)
+        LONG (l4 + PC_SUPERVISOR)
+        LONG (l5 + PC_SUPERVISOR)
+        LONG (l6 + PC_SUPERVISOR)
+        LONG (l7 + PC_SUPERVISOR)

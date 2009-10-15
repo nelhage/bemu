@@ -50,6 +50,7 @@ run_one bench4   "[00] 991727a0 [01] 5096a491 [02] 00000000 [03] 00000000"
 run_one supervisor "[00] ffffabcd"
 run_one align    "[00] ffffabcd"
 run_one qsort    "[00] 00001111"
+run_one jmptab   "[00] 00000007" "Hello."
 NONDET=1
 FAIL=1
 run_one trap     "Illegal memory reference"

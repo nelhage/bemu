@@ -11,7 +11,7 @@ HEADERS=$(SRCS:.c=.h) $(GEN_H) x86.h
 BEMU=bemu
 UASM=uasm/uasm
 
-TESTS=sancheck litmus bench1 bench2 bench3 bench4 supervisor align qsort timer trap
+TESTS=sancheck litmus bench1 bench2 bench3 bench4 supervisor align qsort timer trap jmptab
 TESTS:=$(TESTS:%=tests/%.bin)
 
 $(BEMU): $(OBJECTS)
