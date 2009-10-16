@@ -14,12 +14,19 @@
 #define offsetof(TYPE, MEMBER)  __builtin_offsetof (TYPE, MEMBER)
 
 #ifdef DEBUG
-#define LOG(fmt, ...) printf("%s:%d: " fmt "\n", __FILE__, __LINE__, ## __VA_ARGS__)
+#define LOG_(lev, fmt, ...) do {                                        \
+    if(DEBUG >= lev)                                                    \
+        printf("%s:%d: " fmt "\n", __FILE__, __LINE__, ## __VA_ARGS__); \
+    } while (0)
 #define ASSERT(x)     if(!(x)) {LOG("FAILED ASSERT : %s", #x); exit(1);}
 #else
-#define LOG(fmt, ...)
+#define LOG_(lev, fmt, ...)
 #define ASSERT(x)
 #endif
+
+#define LOG(fmt, ...)   LOG_(1, fmt, ## __VA_ARGS__)
+#define LOG0(fmt, ...)   LOG_(0, fmt, ## __VA_ARGS__)
+#define LOG1(fmt, ...)   LOG_(1, fmt, ## __VA_ARGS__)
 
 #define panic(fmt, ...) __panic(__FILE__, __LINE__, fmt, ## __VA_ARGS__);
 void __panic(char *file, int line, char *fmt, ...) __attribute__((noreturn));
