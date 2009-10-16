@@ -29,7 +29,7 @@ static jmp_buf bt_exit_buf;
 uint8_t *bt_stack_base = NULL;
 static uint8_t *frag_cache = NULL;
 static uint8_t *frag_alloc;
-static compiled_frag *frag_hash[256];
+compiled_frag *bt_frag_hash[256];
 
 /* bt_helper.S */
 extern void bt_enter(ccbuff buf) __attribute__((noreturn));
@@ -57,7 +57,7 @@ static void bt_insert_frag(compiled_frag *frag);
 void bt_clear_cache() {
     LOG("Clearing BT cache");
     frag_alloc = frag_cache;
-    memset(frag_hash, 0, sizeof frag_hash);
+    memset(bt_frag_hash, 0, sizeof bt_frag_hash);
 }
 
 
@@ -84,7 +84,7 @@ compiled_frag *bt_alloc_cfrag(bool may_clear) {
 }
 
 compiled_frag *bt_find_frag(byteptr PC) {
-    compiled_frag *frag = frag_hash[HASH_PC(PC)];
+    compiled_frag *frag = bt_frag_hash[HASH_PC(PC)];
     while(frag) {
         if(frag->start_pc == PC) {
             return frag;
@@ -95,8 +95,8 @@ compiled_frag *bt_find_frag(byteptr PC) {
 }
 
 void bt_insert_frag(compiled_frag *frag) {
-    compiled_frag *old = frag_hash[HASH_PC(frag->start_pc)];
-    frag_hash[HASH_PC(frag->start_pc)] = frag;
+    compiled_frag *old = bt_frag_hash[HASH_PC(frag->start_pc)];
+    bt_frag_hash[HASH_PC(frag->start_pc)] = frag;
     frag->hash_next = old;
 }
 

@@ -20,6 +20,23 @@ _(bt_interrupt):
         call _(bt_translate_and_run)
 
 _(bt_continue):
+        mov %eax, %ecx
+
+        /* Try a fast-path lookup of PC in the frag hash table. */
+        andl  $0x3fc, %ecx
+        movl  _(bt_frag_hash)(%ecx), %ecx
+        testl %ecx, %ecx                /* non-NULL frag */
+        jz miss
+        cmpl  %eax, (%ecx)              /* Compare PC */
+        jne miss
+        leal 8(%ecx), %ecx
+
+        cmp $0, 132(%ebp)               /* Check CPU.halt */
+        jnz miss
+
+        jmp *%ecx
+
+miss:
         pushl $0
 _(bt_continue_chain):
         mov %eax, 128(%ebp)
