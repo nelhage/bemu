@@ -57,5 +57,6 @@ run_one trap     "Illegal memory reference"
 
 ulimit -t 2
 OPTIONS="clock"
-NONDET=1
+NONDET=
+FAIL=
 run_one timer    "[00] ffffabcd"
