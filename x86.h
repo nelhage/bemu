@@ -16,14 +16,14 @@ typedef uint8_t* ccbuff;
 #define SIB(scale, index, base) MODRM(scale, index, base)
 
 typedef enum {
-    REG_EAX = 0x00,
-    REG_ECX = 0x01,
-    REG_EDX = 0x02,
-    REG_EBX = 0x03,
-    REG_ESP = 0x04,
-    REG_EBP = 0x05,
-    REG_ESI = 0x06,
-    REG_EDI = 0x07,
+    X86_EAX = 0x00,
+    X86_ECX = 0x01,
+    X86_EDX = 0x02,
+    X86_EBX = 0x03,
+    X86_ESP = 0x04,
+    X86_EBP = 0x05,
+    X86_ESI = 0x06,
+    X86_EDI = 0x07,
 } x86_reg;
 
 #define PREFIX_LOCK     0xF0
@@ -76,12 +76,12 @@ typedef enum {
  * byte follows (with mod != 3)
  */
 
-#define REG_SIB          REG_ESP
+#define REG_SIB          X86_ESP
 
 /*
  * With mod = 0, this specifies a 32-bit displacement
  */
-#define REG_DISP32       REG_EBP
+#define REG_DISP32       X86_EBP
 
 #define X86_BYTE(ptr, byte) ({                  \
             uint8_t _byte = (uint8_t)(byte);    \

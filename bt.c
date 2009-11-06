@@ -224,14 +224,14 @@ void bt_setup_segv_handler() {
     if(__reg == 31) {                                                   \
         X86_XOR_RM32_R32(buf, MOD_REG, x86reg, x86reg);                 \
     } else {                                                            \
-        X86_MOV_RM32_R32(buf, MOD_INDIR_DISP8, REG_EBP, x86reg);        \
+        X86_MOV_RM32_R32(buf, MOD_INDIR_DISP8, X86_EBP, x86reg);        \
         X86_DISP8(buf, offsetof(beta_cpu, regs) + 4*__reg);             \
     }                                                                   \
         })
 #define WRITE_BETA_REG(buf, x86reg, breg) ({                            \
     uint8_t __reg = (breg);                                             \
     if(__reg != 31) {                                                   \
-        X86_MOV_R32_RM32(buf, x86reg, MOD_INDIR_DISP8, REG_EBP);        \
+        X86_MOV_R32_RM32(buf, x86reg, MOD_INDIR_DISP8, X86_EBP);        \
         X86_DISP8(buf, offsetof(beta_cpu, regs) + 4*__reg);             \
     }                                                                   \
         })
@@ -239,59 +239,59 @@ void bt_setup_segv_handler() {
 inline void bt_translate_arith(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) {
     ccbuff buf = *pbuf;
     /* Load %eax with RA, the LHS */
-    LOAD_BETA_REG(buf, inst->ra, REG_EAX);
+    LOAD_BETA_REG(buf, inst->ra, X86_EAX);
     /* Load %ecx with RB, the RHS */
-    LOAD_BETA_REG(buf, inst->rb, REG_ECX);
+    LOAD_BETA_REG(buf, inst->rb, X86_ECX);
 
     switch(inst->opcode) {
     case OP_ADD:
-        X86_ADD_RM32_R32(buf, MOD_REG, REG_ECX, REG_EAX);
+        X86_ADD_RM32_R32(buf, MOD_REG, X86_ECX, X86_EAX);
         break;
     case OP_AND:
-        X86_AND_RM32_R32(buf, MOD_REG, REG_ECX, REG_EAX);
+        X86_AND_RM32_R32(buf, MOD_REG, X86_ECX, X86_EAX);
         break;
     case OP_OR:
-        X86_OR_RM32_R32(buf, MOD_REG, REG_ECX, REG_EAX);
+        X86_OR_RM32_R32(buf, MOD_REG, X86_ECX, X86_EAX);
         break;
     case OP_SUB:
-        X86_SUB_RM32_R32(buf, MOD_REG, REG_ECX, REG_EAX);
+        X86_SUB_RM32_R32(buf, MOD_REG, X86_ECX, X86_EAX);
         break;
     case OP_XOR:
-        X86_XOR_RM32_R32(buf, MOD_REG, REG_ECX, REG_EAX);
+        X86_XOR_RM32_R32(buf, MOD_REG, X86_ECX, X86_EAX);
         break;
     case OP_MUL:
-        X86_IMUL_RM32_R32(buf, MOD_REG, REG_ECX, REG_EAX);
+        X86_IMUL_RM32_R32(buf, MOD_REG, X86_ECX, X86_EAX);
         break;
     case OP_DIV:
         X86_CDQ(buf);
-        X86_IDIV_RM32(buf, MOD_REG, REG_ECX);
+        X86_IDIV_RM32(buf, MOD_REG, X86_ECX);
         break;
     case OP_SHL:
-        X86_SHL_CL_RM32(buf, MOD_REG, REG_EAX);
+        X86_SHL_CL_RM32(buf, MOD_REG, X86_EAX);
         break;
     case OP_SHR:
-        X86_SHR_CL_RM32(buf, MOD_REG, REG_EAX);
+        X86_SHR_CL_RM32(buf, MOD_REG, X86_EAX);
         break;
     case OP_SRA:
-        X86_SAR_CL_RM32(buf, MOD_REG, REG_EAX);
+        X86_SAR_CL_RM32(buf, MOD_REG, X86_EAX);
         break;
     case OP_CMPLT:
     case OP_CMPEQ:
     case OP_CMPLE:
         /* cmp %ecx, %eax */
-        X86_CMP_RM32_R32(buf, MOD_REG, REG_ECX, REG_EAX);
-        X86_MOV_IMM32_R32(buf, REG_EAX);
+        X86_CMP_RM32_R32(buf, MOD_REG, X86_ECX, X86_EAX);
+        X86_MOV_IMM32_R32(buf, X86_EAX);
         X86_IMM32(buf, 0x0);
         uint8_t cc = (inst->opcode == OP_CMPLT ? CC_L
                       : (inst->opcode == OP_CMPLE ? CC_LE
                          : CC_Z));
-        X86_SETCC_RM8(buf, cc, MOD_REG, REG_EAX);
+        X86_SETCC_RM8(buf, cc, MOD_REG, X86_EAX);
         break;
     default:
         panic("Unknown arithmetic opcode: 0x%02x\n", inst->opcode);
     }
     /* Load %eax into RC */
-    WRITE_BETA_REG(buf, REG_EAX, inst->rc);
+    WRITE_BETA_REG(buf, X86_EAX, inst->rc);
     *pbuf = buf;
 }
 
@@ -301,73 +301,73 @@ inline void bt_translate_arithc(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) 
     uint32_t constant = inst->imm;
     /* Load %eax with RA, the LHS */
     if(inst->ra == 31) {
-        X86_XOR_RM32_R32(buf, MOD_REG, REG_EAX, REG_EAX);
+        X86_XOR_RM32_R32(buf, MOD_REG, X86_EAX, X86_EAX);
     } else {
-        X86_MOV_RM32_R32(buf, MOD_INDIR_DISP8, REG_EBP, REG_EAX);
+        X86_MOV_RM32_R32(buf, MOD_INDIR_DISP8, X86_EBP, X86_EAX);
         X86_DISP8(buf, offsetof(beta_cpu, regs) + 4*inst->ra);
     }
 
     switch(inst->opcode) {
     case OP_ADDC:
-        X86_ADD_IMM32_RM32(buf, MOD_REG, REG_EAX);
+        X86_ADD_IMM32_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM32(buf, constant);
         break;
     case OP_ANDC:
-        X86_AND_IMM32_RM32(buf, MOD_REG, REG_EAX);
+        X86_AND_IMM32_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM32(buf, constant);
         break;
     case OP_MULC:
-        X86_IMUL_IMM32_RM32_R32(buf, MOD_REG, REG_EAX, REG_EAX);
+        X86_IMUL_IMM32_RM32_R32(buf, MOD_REG, X86_EAX, X86_EAX);
         X86_IMM32(buf, constant);
         break;
     case OP_DIVC:
         X86_CDQ(buf);
-        X86_MOV_IMM32_R32(buf, REG_EBX);
+        X86_MOV_IMM32_R32(buf, X86_EBX);
         X86_IMM32(buf, constant);
-        X86_IDIV_RM32(buf, MOD_REG, REG_EBX);
+        X86_IDIV_RM32(buf, MOD_REG, X86_EBX);
         break;
     case OP_ORC:
-        X86_OR_IMM32_RM32(buf, MOD_REG, REG_EAX);
+        X86_OR_IMM32_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM32(buf, constant);
         break;
     case OP_SUBC:
-        X86_SUB_IMM32_RM32(buf, MOD_REG, REG_EAX);
+        X86_SUB_IMM32_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM32(buf, constant);
         break;
     case OP_XORC:
-        X86_XOR_IMM32_RM32(buf, MOD_REG, REG_EAX);
+        X86_XOR_IMM32_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM32(buf, constant);
         break;
     case OP_SHLC:
-        X86_SHL_IMM8_RM32(buf, MOD_REG, REG_EAX);
+        X86_SHL_IMM8_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM8(buf, constant & 0x1F);
         break;
     case OP_SHRC:
-        X86_SHR_IMM8_RM32(buf, MOD_REG, REG_EAX);
+        X86_SHR_IMM8_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM8(buf, constant & 0x1F);
         break;
     case OP_SRAC:
-        X86_SAR_IMM8_RM32(buf, MOD_REG, REG_EAX);
+        X86_SAR_IMM8_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM8(buf, constant & 0x1F);
         break;
     case OP_CMPLTC:
     case OP_CMPEQC:
     case OP_CMPLEC:
         /* cmp $IMM32, %eax */
-        X86_CMP_IMM32_RM32(buf, MOD_REG, REG_EAX);
+        X86_CMP_IMM32_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM32(buf, constant);
-        X86_MOV_IMM32_R32(buf, REG_EAX);
+        X86_MOV_IMM32_R32(buf, X86_EAX);
         X86_IMM32(buf, 0x0);
         uint8_t cc = (inst->opcode == OP_CMPLTC ? CC_L
                       : (inst->opcode == OP_CMPLEC ? CC_LE
                          : CC_Z));
-        X86_SETCC_RM8(buf, cc, MOD_REG, REG_EAX);
+        X86_SETCC_RM8(buf, cc, MOD_REG, X86_EAX);
         break;
     default:
         panic("Unknown constant arithmetic opcode: 0x%02x\n", inst->opcode);
     }
     /* Load %eax into RC */
-    WRITE_BETA_REG(buf, REG_EAX, inst->rc);
+    WRITE_BETA_REG(buf, X86_EAX, inst->rc);
     *pbuf = buf;
 }
 
@@ -381,20 +381,20 @@ inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
          * and $7FFFFFFC, %eax
          * mov %ecx, mem[%eax]
          */
-        LOAD_BETA_REG(buf, inst->ra, REG_EAX);
+        LOAD_BETA_REG(buf, inst->ra, X86_EAX);
 
         if(inst->imm) {
-            X86_ADD_IMM32_RM32(buf, MOD_REG, REG_EAX);
+            X86_ADD_IMM32_RM32(buf, MOD_REG, X86_EAX);
             X86_IMM32(buf, inst->imm);
         }
 
-        LOAD_BETA_REG(buf, inst->rc, REG_ECX);
+        LOAD_BETA_REG(buf, inst->rc, X86_ECX);
 
-        X86_AND_IMM32_RM32(buf, MOD_REG, REG_EAX);
+        X86_AND_IMM32_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM32(buf, ~(PC_SUPERVISOR | 0x3));
 
         X86_BYTE(buf, PREFIX_SEG_FS);
-        X86_MOV_R32_RM32(buf, REG_ECX, MOD_INDIR, REG_EAX);
+        X86_MOV_R32_RM32(buf, X86_ECX, MOD_INDIR, X86_EAX);
 
         break;
     case OP_LD:
@@ -404,28 +404,28 @@ inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
          * mov mem[%eax], eax
          * mov $eax, regs[RC]
          */
-        LOAD_BETA_REG(buf, inst->ra, REG_EAX);
+        LOAD_BETA_REG(buf, inst->ra, X86_EAX);
 
         if(inst->imm) {
-            X86_ADD_IMM32_RM32(buf, MOD_REG, REG_EAX);
+            X86_ADD_IMM32_RM32(buf, MOD_REG, X86_EAX);
             X86_IMM32(buf, inst->imm);
         }
 
-        X86_AND_IMM32_RM32(buf, MOD_REG, REG_EAX);
+        X86_AND_IMM32_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM32(buf, ~(PC_SUPERVISOR | 0x3));
 
         X86_BYTE(buf, PREFIX_SEG_FS);
-        X86_MOV_RM32_R32(buf, MOD_INDIR, REG_EAX, REG_EAX);
+        X86_MOV_RM32_R32(buf, MOD_INDIR, X86_EAX, X86_EAX);
 
-        WRITE_BETA_REG(buf, REG_EAX, inst->rc);
+        WRITE_BETA_REG(buf, X86_EAX, inst->rc);
         break;
     case OP_LDR:
 
         X86_BYTE(buf, PREFIX_SEG_FS);
-        X86_MOV_RM32_R32(buf, MOD_INDIR, REG_DISP32, REG_EAX);
+        X86_MOV_RM32_R32(buf, MOD_INDIR, REG_DISP32, X86_EAX);
         X86_DISP32(buf, ((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03)));
 
-        WRITE_BETA_REG(buf, REG_EAX, inst->rc);
+        WRITE_BETA_REG(buf, X86_EAX, inst->rc);
         break;
     default:
         panic("Unable to translate opcode: 0x%02x\n", inst->opcode);
@@ -456,7 +456,7 @@ inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
     ccbuff buf = *pbuf;
 
     if(!(pc & PC_SUPERVISOR)) {
-        X86_TEST_IMM32_RM32(buf, MOD_INDIR_DISP32, REG_EBP);
+        X86_TEST_IMM32_RM32(buf, MOD_INDIR_DISP32, X86_EBP);
         X86_DISP32(buf, offsetof(beta_cpu, pending_interrupts));
         X86_IMM32(buf, 0xFFFFFFFF);
         X86_JCC_REL32(buf, CC_NZ);
@@ -467,11 +467,11 @@ inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
 
 inline void bt_translate_interp(ccbuff *pbuf, byteptr pc) {
     // Align %esp on a 16-byte boundary to placate OS X
-    X86_SUB_IMM32_RM32(*pbuf, MOD_REG, REG_ESP);
+    X86_SUB_IMM32_RM32(*pbuf, MOD_REG, X86_ESP);
     X86_IMM32(*pbuf, 4);
 
     // Save the PC into CPU.PC
-    X86_MOV_IMM32_RM32(*pbuf, MOD_INDIR_DISP32, REG_EBP);
+    X86_MOV_IMM32_RM32(*pbuf, MOD_INDIR_DISP32, X86_EBP);
     X86_DISP32(*pbuf, offsetof(beta_cpu, PC));
     X86_IMM32(*pbuf, pc);
 
@@ -479,11 +479,11 @@ inline void bt_translate_interp(ccbuff *pbuf, byteptr pc) {
     X86_CALL_REL32(*pbuf);
     X86_REL32(*pbuf, bcpu_step_one);
 
-    X86_ADD_IMM32_RM32(*pbuf, MOD_REG, REG_ESP);
+    X86_ADD_IMM32_RM32(*pbuf, MOD_REG, X86_ESP);
     X86_IMM32(*pbuf, 4);
 
     // Save CPU.PC back into %eax
-    X86_MOV_RM32_R32(*pbuf, MOD_INDIR_DISP32, REG_EBP, REG_EAX);
+    X86_MOV_RM32_R32(*pbuf, MOD_INDIR_DISP32, X86_EBP, X86_EAX);
     X86_DISP32(*pbuf, offsetof(beta_cpu, PC));
 
     X86_CALL_REL32(*pbuf);
@@ -494,7 +494,7 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
     ccbuff buf = *pbuf;
 #define SAVE_PC                                                 \
     if(inst->rc != 31) {                                        \
-        X86_MOV_IMM32_RM32(buf, MOD_INDIR_DISP8, REG_EBP);      \
+        X86_MOV_IMM32_RM32(buf, MOD_INDIR_DISP8, X86_EBP);      \
         X86_DISP8(buf, offsetof(beta_cpu, regs)+ 4*inst->rc);   \
         X86_IMM32(buf, pc + 4);                                 \
     }
@@ -505,7 +505,7 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         if(inst->ra == 31) {
             /* Unconditional branch */
             SAVE_PC;
-            X86_MOV_IMM32_R32(buf, REG_EAX);
+            X86_MOV_IMM32_R32(buf, X86_EAX);
             if (inst->opcode == OP_BF) {
                 X86_IMM32(buf, (pc + 4 + 4*inst->imm) & ~0x03);
             } else {
@@ -525,7 +525,7 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
              * call  bt_continue_chain
              */
 
-            X86_CMP_IMM32_RM32(buf, MOD_INDIR_DISP8, REG_EBP);
+            X86_CMP_IMM32_RM32(buf, MOD_INDIR_DISP8, X86_EBP);
             X86_DISP8(buf, offsetof(beta_cpu, regs) + 4 * inst->ra);
             X86_IMM32(buf, 0);
 
@@ -534,13 +534,13 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
             X86_JCC_REL8(buf, inst->opcode == OP_BT ? CC_NZ : CC_Z);
             X86_DISP8(buf, 10);
 
-            X86_MOV_IMM32_R32(buf, REG_EAX);
+            X86_MOV_IMM32_R32(buf, X86_EAX);
             X86_IMM32(buf, pc + 4);
 
             X86_CALL_REL32(buf);
             X86_REL32(buf, bt_continue_chain);
 
-            X86_MOV_IMM32_R32(buf, REG_EAX);
+            X86_MOV_IMM32_R32(buf, X86_EAX);
             X86_IMM32(buf, (pc + 4 + 4*inst->imm) & ~0x03);
 
             X86_CALL_REL32(buf);
@@ -549,9 +549,9 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         break;
     case OP_JMP:
         SAVE_PC;
-        LOAD_BETA_REG(buf, inst->ra, REG_EAX);
+        LOAD_BETA_REG(buf, inst->ra, X86_EAX);
 
-        X86_AND_IMM32_RM32(buf, MOD_REG, REG_EAX);
+        X86_AND_IMM32_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM32(buf, (pc & PC_SUPERVISOR) | ~(PC_SUPERVISOR|0x3));
 
         X86_JMP_REL32(buf);
@@ -564,11 +564,11 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         /* If we made it here, it's an ILLOP */
         ASSERT(!decode_valid(inst));
         /* XP = PC + 4*/
-        X86_MOV_IMM32_RM32(buf, MOD_INDIR_DISP8, REG_EBP);
+        X86_MOV_IMM32_RM32(buf, MOD_INDIR_DISP8, X86_EBP);
         X86_DISP8(buf, offsetof(beta_cpu, regs) + 4*XP);
         X86_IMM32(buf, pc + 4);
 
-        X86_MOV_IMM32_R32(buf, REG_EAX);
+        X86_MOV_IMM32_R32(buf, X86_EAX);
         X86_IMM32(buf, ISR_ILLOP);
 
         X86_CALL_REL32(buf);
@@ -596,7 +596,7 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
 
     /* Update CPU.inst_count */
 
-    X86_ADD_IMM32_RM32(buf, MOD_INDIR_DISP32, REG_EBP);
+    X86_ADD_IMM32_RM32(buf, MOD_INDIR_DISP32, X86_EBP);
     X86_DISP32(buf, offsetof(beta_cpu, inst_count));
     X86_IMM32(buf, frag->ninsts + (frag->tail ? 1 : 0));
 
@@ -606,7 +606,7 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
         /*
          * default epilogue -- save emulated PC and jump to bt_continue_chain
          */
-        X86_MOV_IMM32_R32(buf, REG_EAX);
+        X86_MOV_IMM32_R32(buf, X86_EAX);
         X86_IMM32(buf, pc);
 
         X86_CALL_REL32(buf);
