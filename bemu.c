@@ -180,7 +180,7 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void __panic(char *file, int line, char *fmt, ...)
+void __panic(const char *file, int line, const char *fmt, ...)
 {
     va_list ap;
 

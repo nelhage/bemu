@@ -29,7 +29,7 @@
 #define LOG1(fmt, ...)   LOG_(1, fmt, ## __VA_ARGS__)
 
 #define panic(fmt, ...) __panic(__FILE__, __LINE__, fmt, ## __VA_ARGS__);
-void __panic(char *file, int line, char *fmt, ...) __attribute__((noreturn));
+void __panic(const char *file, int line, const char *fmt, ...) __attribute__((noreturn));
 
 #define UNUSED __attribute__((unused))
 
