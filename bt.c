@@ -208,7 +208,6 @@ void bt_setup_segv_handler() {
  *
  * Chaining
  * --------
- *
  * For performance, we can "chain" fragments that always follow each
  * other, by overwriting the translated fragment with a jump directly
  * to the next fragment.
@@ -224,6 +223,31 @@ void bt_setup_segv_handler() {
  * taken as the `chainptr' argument when bt_continue subsequently
  * CALLs bt_translate_and_run. `bt_continue' simply pushes a NULL
  * chainptr and falls through to bt_continue_chain.
+ *
+ * Inline JMP target caching
+ * -------------------------
+ * In addition to exits bt_continue and bt_continue_chain, JMP
+ * instructions can exit to bt_continue_ic. bt_continue_ic is used to
+ * implement an inline cache of JMP targets. bt_continue_ic overwrites
+ * the call with a jmp directly to compiled code, but instead of
+ * jumping to the start of the ccbuf, it jumps 12 bytes before it, to
+ * the following check:
+ *
+ *  cmp $CFAG_PC, %eax
+ *  jne bt_continue
+ *
+ * This has the effect that future JMPs to the same target as the
+ * first will fall through directly into the ccbuf, instead of having
+ * to go through the frag cache. If the JMP target has changed,
+ * however, we call back into bt_continue to do the full hash lookup
+ * and compilation if necessary.
+ *
+ * This is implemented by writing the above 12-byte prefix before
+ * translating every ccbuf, since there is no good way to tell which
+ * ccbufs may be targets of indirect jumps. In addition,
+ * bt_translate_and_run takes an extra parameter, 'exact', which
+ * controls whether it should chain to cfrag->code, or 12 bytes before
+ * it. bt_continue_chain sets the flag, bt_continue_ic does not.
  */
 
 #define LOAD_BETA_REG(buf, breg, x86reg) ({                             \
