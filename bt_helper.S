@@ -29,7 +29,7 @@ _(bt_continue):
         jz miss
         cmpl  %eax, (%ecx)              /* Compare PC */
         jne miss
-        leal 8(%ecx), %ecx
+        movl 8(%ecx), %ecx
 
         cmp $0, 132(%ebp)               /* Check CPU.halt */
         jnz miss

@@ -21,7 +21,7 @@ typedef struct {
 typedef struct compiled_frag {
     byteptr start_pc;
     struct compiled_frag *hash_next;
-    uint8_t code[0];
+    uint8_t *code;
 } compiled_frag;
 
 #define HASH_PC(pc) (((pc) >> 2) & 0xFF)

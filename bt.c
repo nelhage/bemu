@@ -22,13 +22,16 @@ int modify_ldt(int func, struct user_desc *ptr, unsigned long bytes) {
 
 #define BT_STACK_SIZE  (1 << 16)
 
-/* 1MB translation cache */
+/* 1MB translation code cache */
 #define BT_CACHE_SIZE  (1 << 20)
+#define BT_CACHE_FRAGS (1 << 12)
 
 static jmp_buf bt_exit_buf;
 uint8_t *bt_stack_base = NULL;
-static uint8_t *frag_cache = NULL;
-static uint8_t *frag_alloc;
+static compiled_frag frag_cache[BT_CACHE_FRAGS];
+static compiled_frag *frag_alloc;
+static uint8_t *frag_code_cache = NULL;
+static uint8_t *frag_code_alloc;
 compiled_frag *bt_frag_hash[256];
 
 /* bt_helper.S */
@@ -57,20 +60,22 @@ static void bt_insert_frag(compiled_frag *frag);
 void bt_clear_cache() {
     LOG("Clearing BT cache");
     frag_alloc = frag_cache;
+    frag_code_alloc = frag_code_cache;
+
     memset(bt_frag_hash, 0, sizeof bt_frag_hash);
 }
 
 
 /*
- * When this returns, only `sizeof (struct compiled_frag)' memory is
- * allocated. `bt_translate_and_run' updates `frag_alloc' to point
- * beyond the generated code after a fragment is translated into the
- * returned frag.
+ * We return a compiled_frag with a 'code' pointer into the compiled
+ * code cache. `bt_translate_and_run' is responsible for updating
+ * `frag_alloc' after it has generated code into this pointer.
  */
 compiled_frag *bt_alloc_cfrag(bool may_clear) {
     compiled_frag *frag;
-    if(frag_alloc + sizeof *frag + CCBUFF_MAX_SIZE >
-       frag_cache + BT_CACHE_SIZE) {
+    if(frag_alloc == (frag_cache + BT_CACHE_FRAGS) ||
+       frag_code_alloc + CCBUFF_MAX_SIZE >=
+       frag_code_cache + BT_CACHE_SIZE) {
         if(may_clear) {
             bt_clear_cache();
         } else {
@@ -78,8 +83,9 @@ compiled_frag *bt_alloc_cfrag(bool may_clear) {
         }
     }
 
-    frag = (compiled_frag*)frag_alloc;
-    frag_alloc += sizeof *frag;
+    frag = frag_alloc++;
+    frag->code = frag_code_alloc;
+
     return frag;
 }
 
@@ -628,12 +634,12 @@ void bt_run() {
     }
     bt_stack_base += BT_STACK_SIZE;
 
-    if(!frag_cache) {
-        frag_cache = valloc(BT_CACHE_SIZE);
-        if(frag_cache == NULL) {
+    if(!frag_code_cache) {
+        frag_code_cache = valloc(BT_CACHE_SIZE);
+        if(frag_code_cache == NULL) {
             panic("Could not allocate BT cache!");
         }
-        if(mprotect(frag_cache, BT_CACHE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC)) {
+        if(mprotect(frag_code_cache, BT_CACHE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC)) {
             perror("mprotect");
             panic("Unable to mprotect() the BT cache!");
         }
@@ -685,7 +691,7 @@ void bt_translate_and_run(ccbuff chainptr) {
         }
         frag.ninsts = i;
         cfrag = bt_alloc_cfrag(TRUE);
-        frag_alloc = bt_translate_frag(cfrag, &frag);
+        frag_code_alloc = bt_translate_frag(cfrag, &frag);
         bt_insert_frag(cfrag);
     } else {
         LOG("Cache HIT at pc 0x%08x", pc);
