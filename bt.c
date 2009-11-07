@@ -691,6 +691,12 @@ void bt_translate_and_run(ccbuff chainptr) {
         }
         frag.ninsts = i;
         cfrag = bt_alloc_cfrag(TRUE);
+        if (chainptr == cfrag->code) {
+            cfrag->code -= 5;
+            chainptr = NULL;
+            LOG("Chaining adjacent frags at pc=0x%08x", frag.start_pc);
+        }
+
         frag_code_alloc = bt_translate_frag(cfrag, &frag);
         bt_insert_frag(cfrag);
     } else {
