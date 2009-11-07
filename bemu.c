@@ -156,7 +156,7 @@ int main(int argc, char **argv)
 
     if(cpu_options.do_time) {
         timeval_subtract(&delta, &end, &start);
-        printf("Executed %d insts in %ds.%dus\n", CPU.inst_count,
+        printf("Executed %d insts in %d.%06ds\n", CPU.inst_count,
                (int)delta.tv_sec, (int)delta.tv_usec);
         printf("Simulated MIPS: %f\n",
                1e-6 * CPU.inst_count/(delta.tv_sec + delta.tv_usec * 1e-6));
