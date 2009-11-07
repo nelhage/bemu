@@ -461,6 +461,11 @@ inline void bt_translate_inst(ccbuff *pbuf, byteptr pc, bdecode *inst) {
 inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
     ccbuff buf = *pbuf;
 
+    X86_CMP_IMM32_RM32(buf, MOD_REG, X86_EAX);
+    X86_IMM32(buf, pc);
+    X86_JCC_REL32(buf, CC_NZ);
+    X86_REL32(buf, bt_continue);
+
     if(!(pc & PC_SUPERVISOR)) {
         X86_TEST_IMM32_RM32(buf, MOD_INDIR_DISP32, X86_EBP);
         X86_DISP32(buf, offsetof(beta_cpu, pending_interrupts));
@@ -560,8 +565,8 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_AND_IMM32_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM32(buf, (pc & PC_SUPERVISOR) | ~(PC_SUPERVISOR|0x3));
 
-        X86_JMP_REL32(buf);
-        X86_REL32(buf, bt_continue);
+        X86_CALL_REL32(buf);
+        X86_REL32(buf, bt_continue_chain);
         break;
     case OP_CALLOUT:
         bt_translate_interp(&buf, pc);
