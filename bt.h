@@ -3,12 +3,14 @@
 
 #define MAX_BYTES_PER_INSTRUCTION       24
 #define MAX_FRAG_SIZE                   10
+#define PC_CHECK_SIZE                   12
 #define CCBUFF_PROLOGUE_SIZE            26
 #define CCBUFF_EPILOGUE_SIZE            11
 #define CCBUFF_MAX_SIZE                 (MAX_BYTES_PER_INSTRUCTION * \
                                          MAX_FRAG_SIZE               \
                                          + CCBUFF_EPILOGUE_SIZE      \
-                                         + CCBUFF_PROLOGUE_SIZE)
+                                         + CCBUFF_PROLOGUE_SIZE      \
+                                         + PC_CHECK_SIZE)
 #define PGSIZE                          0x1000
 
 typedef struct {

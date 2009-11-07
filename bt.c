@@ -38,9 +38,10 @@ compiled_frag *bt_frag_hash[256];
 extern void bt_enter(ccbuff buf) __attribute__((noreturn));
 extern void bt_continue(void);
 extern void bt_continue_chain(void);
+extern void bt_continue_ic(void);
 extern void bt_interrupt(void);
 
-void bt_translate_and_run(ccbuff chainptr) __attribute__((noreturn, used));
+void bt_translate_and_run(uint32_t used, ccbuff chainptr) __attribute__((noreturn, used));
 static ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag);
 
 /*
@@ -566,7 +567,7 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_IMM32(buf, (pc & PC_SUPERVISOR) | ~(PC_SUPERVISOR|0x3));
 
         X86_CALL_REL32(buf);
-        X86_REL32(buf, bt_continue_chain);
+        X86_REL32(buf, bt_continue_ic);
         break;
     case OP_CALLOUT:
         bt_translate_interp(&buf, pc);
@@ -654,7 +655,7 @@ void bt_run() {
     CPU.segment = bt_setup_cpu_segment();
     bt_setup_segv_handler();
 
-    bt_translate_and_run(NULL);
+    bt_translate_and_run(1, NULL);
 }
 
 inline bool bt_ends_frag(bdecode *inst) {
@@ -667,7 +668,7 @@ inline bool bt_ends_frag(bdecode *inst) {
         inst->opcode == OP_CALLOUT;
 }
 
-void bt_translate_and_run(ccbuff chainptr) {
+void bt_translate_and_run(uint32_t exact, ccbuff chainptr) {
     compiled_frag *cfrag;
     decode_frag frag;
     uint32_t inst;
@@ -703,6 +704,8 @@ void bt_translate_and_run(ccbuff chainptr) {
         }
 
         frag_code_alloc = bt_translate_frag(cfrag, &frag);
+        cfrag->code += PC_CHECK_SIZE;
+
         bt_insert_frag(cfrag);
     } else {
         LOG("Cache HIT at pc 0x%08x", pc);
@@ -711,7 +714,7 @@ void bt_translate_and_run(ccbuff chainptr) {
     if(chainptr) {
         chainptr -= 5;
         X86_JMP_REL32(chainptr);
-        X86_REL32(chainptr, cfrag->code);
+        X86_REL32(chainptr, (exact ? cfrag->code : (cfrag->code - PC_CHECK_SIZE)));
         LOG("Chaining to frag 0x%08x", cfrag->start_pc);
     }
 

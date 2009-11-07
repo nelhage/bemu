@@ -8,6 +8,7 @@
 
 .globl _(bt_continue)
 .globl _(bt_continue_chain)
+.globl _(bt_continue_ic)
 .globl _(bt_enter)
 .globl _(bt_interrupt)
 
@@ -40,6 +41,12 @@ miss:
         pushl $0
 _(bt_continue_chain):
         mov %eax, 128(%ebp)
+        pushl $1
+        call _(bt_translate_and_run)
+
+_(bt_continue_ic):
+        mov %eax, 128(%ebp)
+        pushl $0
         call _(bt_translate_and_run)
 
 _(bt_enter):
