@@ -33,6 +33,8 @@ void __panic(const char *file, int line, const char *fmt, ...) __attribute__((no
 
 #define UNUSED __attribute__((unused))
 
+extern int profile_instructions;
+
 #include "bdecode.h"
 #include "bcpu.h"
 #include "x86.h"

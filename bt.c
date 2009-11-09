@@ -535,6 +535,11 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_IMM32(buf, pc + 4);                                 \
     }
 
+    if(profile_instructions && inst->opcode != OP_CALLOUT) {
+        X86_INC_RM32(buf, MOD_INDIR_DISP32, X86_EBP);
+        X86_DISP32(buf, offsetof(beta_cpu, opcode_counts[inst->opcode]));
+    }
+
     switch(inst->opcode) {
     case OP_BT:
     case OP_BF:
@@ -626,6 +631,11 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
     bt_translate_prologue(&buf, pc);
 
     for(i = 0; i < frag->ninsts; i++) {
+        if (profile_instructions) {
+            X86_INC_RM32(buf, MOD_INDIR_DISP32, X86_EBP);
+            X86_DISP32(buf, offsetof(beta_cpu, opcode_counts[frag->insts[i].opcode]));
+        }
+
         bt_translate_inst(&buf, pc, &frag->insts[i]);
         pc += 4;
     }

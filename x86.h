@@ -110,6 +110,11 @@ typedef enum {
             X86_BYTE(ptr, SIB(scale, index, base));     \
         })
 
+#define X86_INC_RM32(ptr, mod, rm) ({           \
+    X86_BYTE(ptr, 0xff);                        \
+    X86_BYTE(ptr, MODRM(mod, 0, rm));           \
+        })
+
 /*
  * We use the AT&T convention of SRC_DST.
  * 

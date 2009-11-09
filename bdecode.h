@@ -89,6 +89,7 @@ static inline void decode_op(uint32_t instr, bdecode *decode)
     __attribute__ ((always_inline));
 bool decode_valid(bdecode *decode);
 char *pp_decode(bdecode *decode);
+char *op_name(beta_op op);
 
 /*
  * Decode a 32-bit \Beta opcode into a bdecode struct

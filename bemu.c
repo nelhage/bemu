@@ -39,6 +39,7 @@ void usage() {
     printf("   Options:\n");
     printf("     -e         Emulate; Do not perform binary translation\n");
     printf("     -t         Time program execution\n");
+    printf("     -p         Profile execution by opcode\n");
     printf("     -d         Dump CPU state at HALT()\n");
     printf("     -o OPTS    Set CPU options\n");
     printf("\n");
@@ -49,11 +50,14 @@ void usage() {
 struct {
     bool emulate;
     bool do_time;
+    bool do_profile;
     bool do_dump;
     bool enable_clock;
     bool kbd_interrupt;
     char *filename;
 } cpu_options;
+
+int profile_instructions;
 
 void handle_flags(char *optval) {
     int len;
@@ -83,13 +87,17 @@ void handle_flags(char *optval) {
 
 void handle_options(int argc, char **argv) {
     int arg;
-    while((arg = getopt(argc, argv, "deto:")) > 0) {
+    while((arg = getopt(argc, argv, "detpo:")) > 0) {
         switch(arg) {
         case 'd':
             cpu_options.do_dump = 1;
             break;
         case 't':
             cpu_options.do_time = 1;
+            break;
+        case 'p':
+            cpu_options.do_profile = 1;
+            profile_instructions = 1;
             break;
         case 'e':
             cpu_options.emulate = 1;
@@ -105,6 +113,32 @@ void handle_options(int argc, char **argv) {
         cpu_options.filename = argv[optind];
     } else {
         usage();
+    }
+}
+
+struct profile_result {
+    beta_op op;
+    uint32_t count;
+};
+
+int cmp_profile(const void *plhs, const void *prhs) {
+    const struct profile_result *lhs = plhs, *rhs = prhs;
+    return rhs->count - lhs->count;
+}
+
+void dump_profile() {
+    struct profile_result profile[256];
+
+    int op;
+    for(op = 0; op != 255; op++) {
+        profile[op].op = op;
+        profile[op].count = CPU.opcode_counts[op];
+    }
+
+    qsort(profile, 256, sizeof *profile, cmp_profile);
+
+    for(op = 0; profile[op].count && op < 256; op++) {
+        printf("%-15s: %d\n", op_name(profile[op].op), profile[op].count);
     }
 }
 
@@ -160,6 +194,11 @@ int main(int argc, char **argv)
                (int)delta.tv_sec, (int)delta.tv_usec);
         printf("Simulated MIPS: %f\n",
                1e-6 * CPU.inst_count/(delta.tv_sec + delta.tv_usec * 1e-6));
+    }
+
+    if(cpu_options.do_profile) {
+        printf("Detailed instruction profile:\n");
+        dump_profile();
     }
 
     if(cpu_options.do_dump) {

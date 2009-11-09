@@ -29,9 +29,10 @@ typedef struct {
     uint32_t halt;
     uint32_t *memory;
     uint32_t memsize;
-    uint32_t  segment;
+    uint32_t segment;
     uint32_t pending_interrupts;
     uint32_t inst_count;
+    uint32_t opcode_counts[256];
 } beta_cpu;
 
 extern beta_cpu CPU;

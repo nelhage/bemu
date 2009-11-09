@@ -32,6 +32,8 @@ void bcpu_execute_one(bdecode *decode) {
      */
     CPU.regs[31] = 0;
 
+    CPU.opcode_counts[decode->opcode]++;
+
     switch(decode->opcode) {
 
 #define ARITH(NAME, OP)                                                 \
@@ -150,6 +152,7 @@ void bcpu_reset()
     CPU.PC = ISR_RESET;
     CPU.regs[31] = 0;
     CPU.inst_count = 0;
+    memset(CPU.opcode_counts, 0, sizeof CPU.opcode_counts);
     CPU.halt = 0;
 }
 
@@ -162,7 +165,7 @@ void bcpu_step_one()
     uint32_t op;
 
     op = beta_read_mem32(&CPU, CPU.PC);
-    
+
     decode_op(op, &decode);
     LOG("[PC=%08x bits=%08x] %s", CPU.PC, op, pp_decode(&decode));
     LOG("ra=%08x, rb=%08x, rc=%08x",
