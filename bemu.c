@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
+#include <signal.h>
 
 /* Subtract the `struct timeval' values X and Y,
    storing the result in RESULT.
@@ -142,6 +143,10 @@ void dump_profile() {
     }
 }
 
+void handle_sigint(int sig) {
+    CPU.halt = 1;
+}
+
 int main(int argc, char **argv)
 {
     int fd;
@@ -171,6 +176,7 @@ int main(int argc, char **argv)
     close(fd);
 
     bcpu_reset();
+    signal(SIGINT, handle_sigint);
 
     if(cpu_options.enable_clock) {
         start_clock();
