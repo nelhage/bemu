@@ -1,0 +1,111 @@
+.include beta.uasm
+
+        .macro PROLOGUE() {PUSH(LP) PUSH(BP) MOVE(SP, BP)}
+        .macro EPILOGUE() {MOVE(BP, SP) POP(BP) POP(LP) RTN()}
+        arg0 = -0x0C
+        arg1 = -0x10
+        arg2 = -0x14
+        arg3 = -0x18
+
+        || bubble sort a large array for performance testing
+
+. = 0
+        BR(start)               | Reset
+        HALT()                  | Illop
+        HALT()                  | Clock
+
+start:
+        CMOVE(stack, SP)
+        CALL(sort)
+        CALL(check)
+        BF(R0, done)
+
+        CMOVE(0x1111, R0)
+done:
+        HALT()
+
+sort:
+        PROLOGUE()
+        PUSH(R0)        | scratch / comparisons
+        PUSH(R1)        | flag
+        PUSH(R2)
+        PUSH(R3)
+        PUSH(R4)
+
+outer:
+        CMOVE(0, R1)
+        CMOVE(array, R2)
+inner:
+        LD(R2, 0, R3)
+        LD(R2, 4, R4)
+
+        CMPLT(R4, R3, R0)
+        BF(R0, next_inner)
+
+        ST(R4, 0, R2)
+        ST(R3, 4, R2)
+        CMOVE(1, R1)
+
+next_inner:
+        ADDC(R2, 4, R2)
+        CMPLTC(R2, arrayend-4, R0)
+        BT(R0, inner)
+
+end_inner:
+        BT(R1, outer)
+
+        POP(R4)
+        POP(R3)
+        POP(R2)
+        POP(R1)
+        POP(R0)
+        EPILOGUE()
+
+
+sort_done:
+        POP(R4)
+        POP(R3)
+        POP(R2)
+        POP(R1)
+        POP(R0)
+        EPILOGUE()
+
+check:
+        PROLOGUE()
+        PUSH(R1)
+        PUSH(R2)
+        PUSH(R3)
+
+        CMOVE(array, R1)
+        LD(R1, 0, R2)
+
+check_loop:
+        ADDC(R1, 4, R1)
+        CMPEQC(R1, arrayend, R0)
+        BT(R0, check_pass)
+        LD(R1, 0, R3)
+        CMPLT(R2, R3, R0)
+        BF(R0, check_fail)
+        MOVE(R3, R2)
+        BR(check_loop)
+
+check_pass:
+        CMOVE(1, R0)
+        BR(check_done)
+check_fail:
+        CMOVE(0, R0)
+check_done:
+        POP(R3)
+        POP(R2)
+        POP(R1)
+        EPILOGUE()
+
+        ||  Data
+stack:
+        STORAGE(1024)
+
+array:
+        .include qsort-data.uasm
+arrayend:
+
+  nelts = (arrayend - array)/4
