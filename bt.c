@@ -233,7 +233,7 @@ void bt_setup_segv_handler() {
  * jumping to the start of the ccbuf, it jumps 12 bytes before it, to
  * the following check:
  *
- *  cmp $CFAG_PC, %eax
+ *  cmp $CFRAG_PC, %eax
  *  jne bt_continue
  *
  * This has the effect that future JMPs to the same target as the
@@ -242,11 +242,12 @@ void bt_setup_segv_handler() {
  * however, we call back into bt_continue to do the full hash lookup
  * and compilation if necessary.
  *
- * This is implemented by writing the above 12-byte prefix before
- * translating every ccbuf, since there is no good way to tell which
- * ccbufs may be targets of indirect jumps. In addition,
- * bt_translate_and_run takes an extra parameter, 'exact', which
- * controls whether it should chain to cfrag->code, or 12 bytes before
+ * This is implemented by writing the above prefix (the length of
+ * which is is defined to be `PC_CHECK_SIZE') before translating every
+ * ccbuf, since there is no good way to tell which ccbufs may be
+ * targets of indirect jumps. In addition, bt_translate_and_run takes
+ * an extra parameter, `exact', which controls whether it should chain
+ * to cfrag->code, or `PC_CHECK_SIZE' bytes before
  * it. bt_continue_chain sets the flag, bt_continue_ic does not.
  */
 
