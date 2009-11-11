@@ -63,6 +63,8 @@ void console_open(bool interrupt) {
     flags = saved_flags|O_ASYNC;
     fcntl(0, F_SETFL, flags);
 
+    atexit(console_close);
+
     setvbuf(stdout, NULL, _IONBF, 0);
 
     if(interrupt) {

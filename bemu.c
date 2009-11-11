@@ -218,8 +218,6 @@ int main(int argc, char **argv)
         }
     }
 
-    console_close();
-
     munmap(CPU.memory, stat.st_size);
 
     return 0;
