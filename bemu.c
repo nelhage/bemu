@@ -131,7 +131,7 @@ void dump_profile() {
     struct profile_result profile[256];
 
     int op;
-    for(op = 0; op != 255; op++) {
+    for(op = 0; op < 256; op++) {
         profile[op].op = op;
         profile[op].count = CPU.opcode_counts[op];
     }
