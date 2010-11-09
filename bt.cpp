@@ -44,7 +44,7 @@ extern "C" void bt_continue_chain(void);
 extern "C" void bt_continue_ic(void);
 extern "C" void bt_interrupt(void);
 
-extern "C" void bt_translate_and_run(beta_cpu *cpu, uint32_t used, ccbuff chainptr) __attribute__((noreturn, used));
+extern "C" void bt_translate_and_run(beta_cpu *cpu, uint32_t used, ccbuff chainptr) __attribute__((noreturn, used, regparm(3)));
 static ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag);
 
 /*

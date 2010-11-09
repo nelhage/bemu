@@ -17,10 +17,9 @@ _(bt_interrupt):
         mov _(bt_stack_base), %esp
         movl %ebp, %eax
         call _(bt_process_interrupt)
-        subl $4, %esp
-        pushl $0
-        pushl $0
-        pushl %ebp
+        xorl %edx, %edx
+        xorl %ecx, %ecx
+        movl %ebp, %eax
         call _(bt_translate_and_run)
 
 _(bt_continue):
@@ -44,14 +43,16 @@ miss:
         pushl $0
 _(bt_continue_chain):
         mov %eax, 128(%ebp)
-        pushl $1
-        pushl %ebp
+        popl %ecx
+        movl $1, %edx
+        movl %ebp, %eax
         call _(bt_translate_and_run)
 
 _(bt_continue_ic):
         mov %eax, 128(%ebp)
-        pushl $0
-        pushl %ebp
+        popl %ecx
+        xorl %edx, %edx
+        movl %ebp, %eax
         call _(bt_translate_and_run)
 
 _(bt_enter):
