@@ -1,12 +1,12 @@
-CFLAGS=-m32 -O2 -g -Wall -pthread
+CXXFLAGS=-m32 -O2 -g -Wall -pthread
 ASFLAGS=-m32
 LDFLAGS=-m32 -pthread
 
-SRCS=bemu.c bcpu.c bdecode.c bt.c bclock.c bconsole.c
+SRCS=bemu.cpp bcpu.cpp bdecode.cpp bt.cpp bclock.cpp bconsole.cpp
 ASMSRCS=bt_helper.S
-OBJECTS=$(SRCS:.c=.o) $(ASMSRCS:.S=.o)
+OBJECTS=$(SRCS:.cpp=.o) $(ASMSRCS:.S=.o)
 GEN_H=opcodes.h
-HEADERS=$(SRCS:.c=.h) $(GEN_H) x86.h
+HEADERS=$(SRCS:.cpp=.h) $(GEN_H) x86.h
 
 BEMU=bemu
 UASM=uasm/uasm
@@ -17,8 +17,9 @@ TESTS_BIN=$(TESTS:%=tests/%.bin)
 all: $(BEMU) $(TESTS_BIN)
 
 $(BEMU): $(OBJECTS)
+	$(CXX) -o $@ $(LDFLAGS) $^
 
-$(UASM): CFLAGS += -w
+$(UASM): CXXFLAGS += -w
 $(UASM):
 uasm: $(UASM)
 

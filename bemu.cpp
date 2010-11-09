@@ -11,8 +11,7 @@
    storing the result in RESULT.
    Return 1 if the difference is negative, otherwise 0.  */
 int
-timeval_subtract (result, x, y)
-     struct timeval *result, *x, *y;
+timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y)
 {
   /* Perform the carry for the later subtraction by updating y. */
   if (x->tv_usec < y->tv_usec) {
@@ -48,7 +47,7 @@ void usage() {
     exit(1);
 }
 
-struct {
+struct _cpu_options {
     bool emulate;
     bool do_time;
     bool do_profile;
@@ -123,7 +122,8 @@ struct profile_result {
 };
 
 int cmp_profile(const void *plhs, const void *prhs) {
-    const struct profile_result *lhs = plhs, *rhs = prhs;
+    const struct profile_result *lhs = (const struct profile_result*)plhs;
+    const struct profile_result *rhs = (const struct profile_result*)prhs;
     return rhs->count - lhs->count;
 }
 
@@ -168,8 +168,8 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
-    if((CPU.memory = mmap(NULL, stat.st_size, PROT_READ|PROT_WRITE,
-                          MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
+    if((CPU.memory = (uint32_t*)mmap(NULL, stat.st_size, PROT_READ|PROT_WRITE,
+                                     MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
         perror("mmap");
         exit(-1);
     }

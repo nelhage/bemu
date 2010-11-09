@@ -17,10 +17,10 @@ extern beta_cpu CPU;
 
 void* console_process(void *arg UNUSED) {
     int err;
-    struct pollfd pollfd = {
-        .fd   = 0,
-        .events = POLLIN
-    };
+    struct pollfd pollfd = {};
+    pollfd.fd   = 0;
+    pollfd.events = POLLIN;
+
     while(1) {
         err = poll(&pollfd, 1, -1);
         if(err < 0) {

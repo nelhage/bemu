@@ -46,7 +46,7 @@ typedef struct {
 typedef uint32_t byteptr;
 typedef uint32_t wordptr;
 
-void bcpu_process_interrupt(beta_cpu *cpu);
+extern "C" void bcpu_process_interrupt(beta_cpu *cpu);
 void bcpu_execute_one(beta_cpu *cpu, bdecode *decode);
 void bcpu_reset(beta_cpu *cpu);
 void bcpu_step_one(beta_cpu *cpu);

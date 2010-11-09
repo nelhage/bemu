@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "bemu.h"
 
 #include <setjmp.h>
@@ -39,13 +38,13 @@ static fault_entry *fault_table_alloc;
 compiled_frag *bt_frag_hash[256];
 
 /* bt_helper.S */
-extern void bt_enter(ccbuff buf) __attribute__((noreturn));
-extern void bt_continue(void);
-extern void bt_continue_chain(void);
-extern void bt_continue_ic(void);
-extern void bt_interrupt(void);
+extern "C" void bt_enter(ccbuff buf) __attribute__((noreturn));
+extern "C" void bt_continue(void);
+extern "C" void bt_continue_chain(void);
+extern "C" void bt_continue_ic(void);
+extern "C" void bt_interrupt(void);
 
-void bt_translate_and_run(beta_cpu *cpu, uint32_t used, ccbuff chainptr) __attribute__((noreturn, used));
+extern "C" void bt_translate_and_run(beta_cpu *cpu, uint32_t used, ccbuff chainptr) __attribute__((noreturn, used));
 static ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag);
 
 /*
@@ -128,17 +127,16 @@ static int bt_alloc_segdesc(uint32_t base, uint32_t pages)
 {
     /* FIXME to actually allocate an unused descriptor */
     int segment = 0;
-    struct user_desc segdesc = {
-        .entry_number    = segment,
-        .base_addr       = base,
-        .limit           = pages,
-        .seg_32bit       = 0,
-        .contents        = 0,
-        .read_exec_only  = 0,
-        .limit_in_pages  = 1,
-        .seg_not_present = 0,
-        .useable         = 0,
-    };
+    struct user_desc segdesc = {};
+    segdesc.entry_number    = segment;
+    segdesc.base_addr       = base;
+    segdesc.limit           = pages;
+    segdesc.seg_32bit       = 0;
+    segdesc.contents        = 0;
+    segdesc.read_exec_only  = 0;
+    segdesc.limit_in_pages  = 1;
+    segdesc.seg_not_present = 0;
+    segdesc.useable         = 0;
 
     if(modify_ldt(1, &segdesc, sizeof(segdesc)) < 0) {
         perror("modify_ldt");
@@ -216,10 +214,10 @@ void bt_segv(int signo UNUSED, siginfo_t *info, void *ctx) {
 }
 
 void bt_setup_segv_handler() {
-    struct sigaction action = {
-        .sa_sigaction = bt_segv,
-        .sa_flags     = SA_SIGINFO
-    };
+    struct sigaction action = {};
+    action.sa_sigaction = bt_segv;
+    action.sa_flags     = SA_SIGINFO;
+
     sigemptyset(&action.sa_mask);
     if(sigaction(SIGSEGV, &action, NULL) < 0) {
         perror("sigaction");
@@ -353,7 +351,7 @@ inline void bt_translate_arith(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) {
         break;
     case OP_CMPLT:
     case OP_CMPEQ:
-    case OP_CMPLE:
+    case OP_CMPLE: {
         /* cmp %ecx, %eax */
         X86_CMP_RM32_R32(buf, MOD_REG, X86_ECX, X86_EAX);
         X86_MOV_IMM32_R32(buf, X86_EAX);
@@ -363,6 +361,7 @@ inline void bt_translate_arith(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) {
                          : CC_Z));
         X86_SETCC_RM8(buf, cc, MOD_REG, X86_EAX);
         break;
+    }
     default:
         panic("Unknown arithmetic opcode: 0x%02x\n", inst->opcode);
     }
@@ -428,7 +427,7 @@ inline void bt_translate_arithc(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) 
         break;
     case OP_CMPLTC:
     case OP_CMPEQC:
-    case OP_CMPLEC:
+    case OP_CMPLEC: {
         /* cmp $IMM32, %eax */
         X86_CMP_IMM32_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM32(buf, constant);
@@ -439,6 +438,7 @@ inline void bt_translate_arithc(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) 
                          : CC_Z));
         X86_SETCC_RM8(buf, cc, MOD_REG, X86_EAX);
         break;
+    }
     default:
         panic("Unknown constant arithmetic opcode: 0x%02x\n", inst->opcode);
     }
@@ -722,7 +722,7 @@ void bt_run(beta_cpu *cpu) {
     }
 
     if(!bt_stack_base) {
-        bt_stack_base = valloc(BT_STACK_SIZE);
+        bt_stack_base = (uint8_t*)valloc(BT_STACK_SIZE);
         if(bt_stack_base == NULL) {
             panic("Unable to allocate BT stack!\n");
         }
@@ -730,7 +730,7 @@ void bt_run(beta_cpu *cpu) {
     bt_stack_base += BT_STACK_SIZE;
 
     if(!frag_code_cache) {
-        frag_code_cache = valloc(BT_CACHE_SIZE);
+        frag_code_cache = (uint8_t*)valloc(BT_CACHE_SIZE);
         if(frag_code_cache == NULL) {
             panic("Could not allocate BT cache!");
         }
@@ -774,18 +774,18 @@ void bt_translate_and_run(beta_cpu *cpu, uint32_t exact, ccbuff chainptr) {
 
     if(!cfrag) {
         frag.start_pc = pc;
-        frag.tail = FALSE;
+        frag.tail = false;
         for(i = 0; i < MAX_FRAG_SIZE; i++) {
             inst = beta_read_mem32(cpu, pc);
             decode_op(inst, &frag.insts[i]);
             if(bt_ends_frag(&frag.insts[i])) {
-                frag.tail = TRUE;
+                frag.tail = true;
                 break;
             }
             pc += 4;
         }
         frag.ninsts = i;
-        cfrag = bt_alloc_cfrag(TRUE);
+        cfrag = bt_alloc_cfrag(true);
         if (chainptr == cfrag->code) {
             cfrag->code -= 5;
             chainptr = NULL;

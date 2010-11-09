@@ -15,14 +15,14 @@
 bool decode_valid(bdecode *decode)
 {
     switch (decode->opcode & 0x3F) {
-#define OP(c) case (c): return TRUE;
+#define OP(c) case (c): return true;
         ALL_OPS
 #undef OP
-    default: return FALSE;
+    default: return false;
     }
 }
 
-char *op_name(beta_op op)
+const char *op_name(beta_op op)
 {
     static char opbuf[20];
     switch(op) {
