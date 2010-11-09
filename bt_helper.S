@@ -15,10 +15,9 @@
 _(bt_interrupt):
         mov %eax, 128(%ebp)
         mov _(bt_stack_base), %esp
-        sub   $12, %esp
-        pushl %ebp
-        call _(bcpu_process_interrupt)
-        addl  $12, %esp
+        movl %ebp, %eax
+        call _(bt_process_interrupt)
+        subl $4, %esp
         pushl $0
         pushl $0
         pushl %ebp

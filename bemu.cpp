@@ -176,7 +176,7 @@ int main(int argc, char **argv)
 
     close(fd);
 
-    bcpu_reset(&CPU);
+    CPU.reset();
     signal(SIGINT, handle_sigint);
 
     if(cpu_options.enable_clock) {
@@ -188,7 +188,7 @@ int main(int argc, char **argv)
     gettimeofday(&start, NULL);
     if(cpu_options.emulate) {
         while(!CPU.halt) {
-            bcpu_step_one(&CPU);
+            CPU.step_one();
         }
     } else {
         bt_run(&CPU);

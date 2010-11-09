@@ -47,7 +47,7 @@ void* console_process(void *arg UNUSED) {
             if(err == 0)
                 kbd_char = -1;
 
-            set_interrupt(&CPU, INT_KBD);
+            CPU.set_interrupt(INT_KBD);
 
             pthread_cond_wait(&console_cond, &console_mutex);
         }
@@ -112,7 +112,7 @@ int beta_rdchr() {
         LockMutex locked(console_mutex);
         c = kbd_char;
         kbd_char = 0;
-        clear_interrupt(&CPU, INT_KBD);
+        CPU.clear_interrupt(INT_KBD);
         pthread_cond_signal(&console_cond);
     }
     return c;

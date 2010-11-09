@@ -191,7 +191,7 @@ void bt_segv(int signo UNUSED, siginfo_t *info, void *ctx) {
             beta_cpu *cpu = (beta_cpu*)uctx->uc_mcontext.gregs[REG_EBP];
             bdecode decode;
             byteptr addr;
-            decode_op(beta_read_mem32(cpu, f->pc), &decode);
+            decode_op(cpu->read_mem32(f->pc), &decode);
             switch (decode.opcode) {
             case OP_LD:
             case OP_ST:
@@ -549,9 +549,17 @@ inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
     *pbuf = buf;
 }
 
-static void __attribute__((used, regparm(1))) bt_step_one(beta_cpu *cpu) {
-    bcpu_step_one(cpu);
-}
+extern "C" {
+    static void bt_step_one(beta_cpu *cpu) __attribute__((used, regparm(1)));
+    static void bt_step_one(beta_cpu *cpu) {
+        cpu->step_one();
+    }
+
+    void bt_process_interrupt(beta_cpu *cpu) __attribute__((used, regparm(1)));
+    void bt_process_interrupt(beta_cpu *cpu) {
+        cpu->process_interrupt();
+    }
+};
 
 inline void bt_translate_interp(ccbuff *pbuf, byteptr pc) {
     // Align %esp on a 16-byte boundary to placate OS X
@@ -776,7 +784,7 @@ void bt_translate_and_run(beta_cpu *cpu, uint32_t exact, ccbuff chainptr) {
         frag.start_pc = pc;
         frag.tail = false;
         for(i = 0; i < MAX_FRAG_SIZE; i++) {
-            inst = beta_read_mem32(cpu, pc);
+            inst = cpu->read_mem32(pc);
             decode_op(inst, &frag.insts[i]);
             if(bt_ends_frag(&frag.insts[i])) {
                 frag.tail = true;

@@ -7,7 +7,7 @@
 extern beta_cpu CPU;
 
 static void clock_tick(int signal) {
-    set_interrupt(&CPU, INT_CLK);
+    CPU.set_interrupt(INT_CLK);
 }
 
 void start_clock(void) {
