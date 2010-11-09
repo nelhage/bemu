@@ -1,69 +1,34 @@
 #include "bemu.h"
 
-static bool op_valid_table[64] = {
-    [OP_ADD]   1, [OP_ADDC]   1,
-    [OP_AND]   1, [OP_ANDC]   1,
-    [OP_MUL]   1, [OP_MULC]   1,
-    [OP_DIV]   1, [OP_DIVC]   1,
-    [OP_OR]    1, [OP_ORC]    1,
-    [OP_SHL]   1, [OP_SHLC]   1,
-    [OP_SHR]   1, [OP_SHRC]   1,
-    [OP_SRA]   1, [OP_SRAC]   1,
-    [OP_SUB]   1, [OP_SUBC]   1,
-    [OP_XOR]   1, [OP_XORC]   1,
-    [OP_CMPEQ] 1, [OP_CMPEQC] 1,
-    [OP_CMPLE] 1, [OP_CMPLEC] 1,
-    [OP_CMPLT] 1, [OP_CMPLTC] 1,
-    [OP_JMP] 1,
-    [OP_BT]  1, [OP_BF] 1,
-    [OP_LD]  1, [OP_ST] 1,
-    [OP_LDR] 1,
-    [OP_CALLOUT] 1
-};
+#define ALL_OPS  OP(OP_ADD) OP(OP_ADDC) OP(OP_AND) OP(OP_ANDC)  \
+    OP(OP_MUL) OP(OP_MULC) OP(OP_DIV) OP(OP_DIVC)               \
+    OP(OP_OR) OP(OP_ORC) OP(OP_SHL) OP(OP_SHLC)                 \
+    OP(OP_SHR) OP(OP_SHRC) OP(OP_SRA) OP(OP_SRAC)               \
+    OP(OP_SUB) OP(OP_SUBC) OP(OP_XOR) OP(OP_XORC)               \
+    OP(OP_CMPEQ) OP(OP_CMPEQC) OP(OP_CMPLE) OP(OP_CMPLEC)       \
+    OP(OP_CMPLT) OP(OP_CMPLTC)                                  \
+    OP(OP_JMP) OP(OP_BT) OP(OP_BF)                              \
+    OP(OP_LD) OP(OP_ST) OP(OP_LDR)                              \
+    OP(OP_CALLOUT)
+
 
 bool decode_valid(bdecode *decode)
 {
-    return op_valid_table[decode->opcode & 0x3F];
+    switch (decode->opcode & 0x3F) {
+#define OP(c) case (c): return TRUE;
+        ALL_OPS
+#undef OP
+    default: return FALSE;
+    }
 }
 
 char *op_name(beta_op op)
 {
     static char opbuf[20];
-#define CASE(mnm) case mnm: return #mnm;
     switch(op) {
-        CASE(OP_ADD);
-        CASE(OP_ADDC);
-        CASE(OP_AND);
-        CASE(OP_ANDC);
-        CASE(OP_MUL);
-        CASE(OP_MULC);
-        CASE(OP_DIV);
-        CASE(OP_DIVC);
-        CASE(OP_OR);
-        CASE(OP_ORC);
-        CASE(OP_SHL);
-        CASE(OP_SHLC);
-        CASE(OP_SHR);
-        CASE(OP_SHRC);
-        CASE(OP_SRA);
-        CASE(OP_SRAC);
-        CASE(OP_SUB);
-        CASE(OP_SUBC);
-        CASE(OP_XOR);
-        CASE(OP_XORC);
-        CASE(OP_CMPEQ);
-        CASE(OP_CMPEQC);
-        CASE(OP_CMPLE);
-        CASE(OP_CMPLEC);
-        CASE(OP_CMPLT);
-        CASE(OP_CMPLTC);
-        CASE(OP_JMP);
-        CASE(OP_BT);
-        CASE(OP_BF);
-        CASE(OP_LD);
-        CASE(OP_ST);
-        CASE(OP_LDR);
-        CASE(OP_CALLOUT);
+#define OP(mnm) case mnm: return #mnm;
+        ALL_OPS
+#undef OP
     default:
         snprintf(opbuf, sizeof opbuf - 1, "ILLOP(%02x)", op);
         return opbuf;
