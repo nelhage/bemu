@@ -4,8 +4,10 @@
 #include <signal.h>
 #include <errno.h>
 
+extern beta_cpu CPU;
+
 static void clock_tick(int signal) {
-    set_interrupt(INT_CLK);
+    set_interrupt(&CPU, INT_CLK);
 }
 
 void start_clock(void) {

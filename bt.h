@@ -28,6 +28,6 @@ typedef struct compiled_frag {
 
 #define HASH_PC(pc) (((pc) >> 2) & 0xFF)
 
-void bt_run();
+void bt_run(beta_cpu *cpu);
 
 #endif

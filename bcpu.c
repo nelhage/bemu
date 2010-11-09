@@ -1,60 +1,57 @@
 #include "bemu.h"
 
-beta_cpu CPU;
-uint32_t *beta_mem;
-
-inline void write_reg(beta_reg reg, uint32_t val)
+inline void write_reg(beta_cpu *cpu, beta_reg reg, uint32_t val)
 {
-    CPU.regs[reg] = val;
+    cpu->regs[reg] = val;
 }
 
-void bcpu_process_interrupt() {
+void bcpu_process_interrupt(beta_cpu *cpu) {
     byteptr  isr = 0;
-    if(CPU.pending_interrupts & INT_CLK) {
-        clear_interrupt(INT_CLK);
+    if(cpu->pending_interrupts & INT_CLK) {
+        clear_interrupt(cpu, INT_CLK);
         isr = ISR_CLK;
-    } else if(CPU.pending_interrupts & INT_KBD) {
+    } else if(cpu->pending_interrupts & INT_KBD) {
         isr = ISR_KBD;
     }
     if(isr) {
-        CPU.regs[XP] = CPU.PC + 4;
-        CPU.PC = isr;
+        cpu->regs[XP] = cpu->PC + 4;
+        cpu->PC = isr;
     }
 }
 
-void bcpu_execute_one(bdecode *decode) {
+void bcpu_execute_one(beta_cpu *cpu, bdecode *decode) {
     uint32_t old_pc;
 
-    CPU.PC += 4;
-    CPU.inst_count++;
+    cpu->PC += 4;
+    cpu->inst_count++;
     /*
      * Enforce R31 is always 0
      */
-    CPU.regs[31] = 0;
+    cpu->regs[31] = 0;
 
-    CPU.opcode_counts[decode->opcode]++;
+    cpu->opcode_counts[decode->opcode]++;
 
     switch(decode->opcode) {
 
 #define ARITH(NAME, OP)                                                 \
     case OP_ ## NAME:                                                   \
-        write_reg(decode->rc,                                           \
-                  CPU.regs[decode->ra] OP CPU.regs[decode->rb]);        \
+        write_reg(cpu, decode->rc,                                      \
+                  cpu->regs[decode->ra] OP cpu->regs[decode->rb]);      \
     break;                                                              \
     case OP_ ## NAME ## C:                                              \
-        write_reg(decode->rc,                                           \
-                  CPU.regs[decode->ra] OP decode->imm);                 \
+        write_reg(cpu, decode->rc,                                      \
+                  cpu->regs[decode->ra] OP decode->imm);                \
     break;
 /* signed arithmetic op */
 #define ARITHS(NAME, OP)                                                \
     case OP_ ## NAME:                                                   \
-        write_reg(decode->rc,                                           \
-                  ((int32_t)CPU.regs[decode->ra])                       \
-                  OP ((int32_t)CPU.regs[decode->rb]));                  \
+        write_reg(cpu, decode->rc,                                      \
+                  ((int32_t)cpu->regs[decode->ra])                      \
+                  OP ((int32_t)cpu->regs[decode->rb]));                 \
     break;                                                              \
     case OP_ ## NAME ## C:                                              \
-        write_reg(decode->rc,                                           \
-                  ((int32_t)CPU.regs[decode->ra]) OP decode->imm);      \
+        write_reg(cpu, decode->rc,                                      \
+                  ((int32_t)cpu->regs[decode->ra]) OP decode->imm);     \
     break;
 
         ARITH(ADD, +)
@@ -79,55 +76,57 @@ void bcpu_execute_one(bdecode *decode) {
  * JMP and friends cannot raise the privilege level by
  * setting the supervisor bit
  */
-#define JMP(newpc) ((newpc) & (0x7FFFFFFC | (CPU.PC & 0x80000000)))
+#define JMP(newpc) ((newpc) & (0x7FFFFFFC | (cpu->PC & 0x80000000)))
     case OP_JMP:
-        old_pc = CPU.PC;
-        CPU.PC = JMP(CPU.regs[decode->ra]);
-        write_reg(decode->rc, old_pc);
+        old_pc = cpu->PC;
+        cpu->PC = JMP(cpu->regs[decode->ra]);
+        write_reg(cpu, decode->rc, old_pc);
         break;
 
     case OP_BT:
-        old_pc = CPU.PC;
-        if(CPU.regs[decode->ra]) {
-            CPU.PC = JMP(CPU.PC + WORD2BYTEADDR(decode->imm));
+        old_pc = cpu->PC;
+        if(cpu->regs[decode->ra]) {
+            cpu->PC = JMP(cpu->PC + WORD2BYTEADDR(decode->imm));
         }
-        write_reg(decode->rc, old_pc);
+        write_reg(cpu, decode->rc, old_pc);
         break;
 
     case OP_BF:
-        old_pc = CPU.PC;
-        if(!CPU.regs[decode->ra]) {
-            CPU.PC = JMP(CPU.PC + WORD2BYTEADDR(decode->imm));
+        old_pc = cpu->PC;
+        if(!cpu->regs[decode->ra]) {
+            cpu->PC = JMP(cpu->PC + WORD2BYTEADDR(decode->imm));
         }
-        write_reg(decode->rc, old_pc);
+        write_reg(cpu, decode->rc, old_pc);
         break;
 #undef JMP
 
     case OP_LD:
-        LOG("LD from byte %08x", CPU.regs[decode->ra] + decode->imm);
-        write_reg(decode->rc, beta_read_mem32(&CPU, CPU.regs[decode->ra] + decode->imm));
+        LOG("LD from byte %08x", cpu->regs[decode->ra] + decode->imm);
+        write_reg(cpu, decode->rc,
+                  beta_read_mem32(cpu, cpu->regs[decode->ra] + decode->imm));
         break;
 
     case OP_ST:
-        LOG("ST to byte %08x", CPU.regs[decode->ra] + decode->imm);
-        beta_write_mem32(&CPU, CPU.regs[decode->ra] + decode->imm, CPU.regs[decode->rc]);
+        LOG("ST to byte %08x", cpu->regs[decode->ra] + decode->imm);
+        beta_write_mem32(cpu, cpu->regs[decode->ra] + decode->imm, cpu->regs[decode->rc]);
         break;
 
     case OP_LDR:
-        write_reg(decode->rc, beta_read_mem32(&CPU, CPU.PC + WORD2BYTEADDR(decode->imm)));
+        write_reg(cpu, decode->rc,
+                  beta_read_mem32(cpu, cpu->PC + WORD2BYTEADDR(decode->imm)));
         break;
 
     case OP_CALLOUT:
-        if(CPU.PC & PC_SUPERVISOR) {
+        if(cpu->PC & PC_SUPERVISOR) {
             switch(decode->imm) {
             case CALL_HALT:
-                CPU.halt = 1;
+                cpu->halt = 1;
                 break;
             case CALL_RDCHR:
-                CPU.regs[0] = beta_rdchr();
+                cpu->regs[0] = beta_rdchr();
                 break;
             case CALL_WRCHR:
-                beta_wrchr(CPU.regs[0]);
+                beta_wrchr(cpu->regs[0]);
                 break;
             default:
                 /* Treat an unknown callout as a NOP */
@@ -137,41 +136,41 @@ void bcpu_execute_one(bdecode *decode) {
         }
         /* Fall through to ILLOP in user mode */
     default:
-        CPU.regs[XP] = CPU.PC;
-        CPU.PC = ISR_ILLOP;
+        cpu->regs[XP] = cpu->PC;
+        cpu->PC = ISR_ILLOP;
         break;
     }
 
-    if(CPU.pending_interrupts && !(CPU.PC & PC_SUPERVISOR)) {
-        bcpu_process_interrupt();
+    if(cpu->pending_interrupts && !(cpu->PC & PC_SUPERVISOR)) {
+        bcpu_process_interrupt(cpu);
     }
 }
 
-void bcpu_reset()
+void bcpu_reset(beta_cpu *cpu)
 {
-    CPU.PC = ISR_RESET;
-    CPU.regs[31] = 0;
-    CPU.inst_count = 0;
-    memset(CPU.opcode_counts, 0, sizeof CPU.opcode_counts);
-    CPU.halt = 0;
+    cpu->PC = ISR_RESET;
+    cpu->regs[31] = 0;
+    cpu->inst_count = 0;
+    memset(cpu->opcode_counts, 0, sizeof cpu->opcode_counts);
+    cpu->halt = 0;
 }
 
 /*
  * Advance the \Beta CPU one cycle
  */
-void bcpu_step_one()
+void bcpu_step_one(beta_cpu *cpu)
 {
     bdecode decode;
     uint32_t op;
 
-    op = beta_read_mem32(&CPU, CPU.PC);
+    op = beta_read_mem32(cpu, cpu->PC);
 
     decode_op(op, &decode);
-    LOG("[PC=%08x bits=%08x] %s", CPU.PC, op, pp_decode(&decode));
+    LOG("[PC=%08x bits=%08x] %s", cpu->PC, op, pp_decode(&decode));
     LOG("ra=%08x, rb=%08x, rc=%08x",
-        CPU.regs[decode.ra],
-        CPU.regs[decode.rb],
-        CPU.regs[decode.rc]);
+        cpu->regs[decode.ra],
+        cpu->regs[decode.rb],
+        cpu->regs[decode.rc]);
 
-    bcpu_execute_one(&decode);
+    bcpu_execute_one(cpu, &decode);
 }

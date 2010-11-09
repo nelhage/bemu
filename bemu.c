@@ -127,13 +127,13 @@ int cmp_profile(const void *plhs, const void *prhs) {
     return rhs->count - lhs->count;
 }
 
-void dump_profile() {
+void dump_profile(beta_cpu *cpu) {
     struct profile_result profile[256];
 
     int op;
     for(op = 0; op < 256; op++) {
         profile[op].op = op;
-        profile[op].count = CPU.opcode_counts[op];
+        profile[op].count = cpu->opcode_counts[op];
     }
 
     qsort(profile, 256, sizeof *profile, cmp_profile);
@@ -142,6 +142,8 @@ void dump_profile() {
         printf("%-15s: %d\n", op_name(profile[op].op), profile[op].count);
     }
 }
+
+beta_cpu CPU;
 
 void handle_sigint(int sig) {
     CPU.halt = 1;
@@ -175,7 +177,7 @@ int main(int argc, char **argv)
 
     close(fd);
 
-    bcpu_reset();
+    bcpu_reset(&CPU);
     signal(SIGINT, handle_sigint);
 
     if(cpu_options.enable_clock) {
@@ -187,10 +189,10 @@ int main(int argc, char **argv)
     gettimeofday(&start, NULL);
     if(cpu_options.emulate) {
         while(!CPU.halt) {
-            bcpu_step_one();
+            bcpu_step_one(&CPU);
         }
     } else {
-        bt_run();
+        bt_run(&CPU);
     }
     gettimeofday(&end, NULL);
 
@@ -204,7 +206,7 @@ int main(int argc, char **argv)
 
     if(cpu_options.do_profile) {
         printf("Detailed instruction profile:\n");
-        dump_profile();
+        dump_profile(&CPU);
     }
 
     if(cpu_options.do_dump) {

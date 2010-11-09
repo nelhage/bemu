@@ -13,6 +13,7 @@ static pthread_t console_thread;
 static struct termios saved_termios;
 static int saved_flags;
 static int kbd_char;
+extern beta_cpu CPU;
 
 void* console_process(void *arg UNUSED) {
     int err;
@@ -33,7 +34,7 @@ void* console_process(void *arg UNUSED) {
         if(err == 0)
             kbd_char = -1;
 
-        set_interrupt(INT_KBD);
+        set_interrupt(&CPU, INT_KBD);
 
         pthread_cond_wait(&console_cond, &console_mutex);
         pthread_mutex_unlock(&console_mutex);
@@ -97,7 +98,7 @@ int beta_rdchr() {
     pthread_mutex_lock(&console_mutex);
     c = kbd_char;
     kbd_char = 0;
-    clear_interrupt(INT_KBD);
+    clear_interrupt(&CPU, INT_KBD);
     pthread_mutex_unlock(&console_mutex);
     pthread_cond_signal(&console_cond);
     return c;

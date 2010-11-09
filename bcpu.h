@@ -16,8 +16,8 @@
 #define INT_KBD         0x0002
 #define INT_MOUSE       0x0004
 
-#define set_interrupt(i)   ({CPU.pending_interrupts |= (i);})
-#define clear_interrupt(i) ({CPU.pending_interrupts &= ~(i);})
+#define set_interrupt(cpu, i)   ({(cpu)->pending_interrupts |= (i);})
+#define clear_interrupt(cpu, i) ({(cpu)->pending_interrupts &= ~(i);})
 
 
 #define XP 30
@@ -35,8 +35,6 @@ typedef struct {
     uint32_t opcode_counts[256];
 } beta_cpu;
 
-extern beta_cpu CPU;
-
 /*
  * We address memory by words, internally, but the beta uses
  * byte-addressing, even though it only supports aligned access
@@ -48,10 +46,10 @@ extern beta_cpu CPU;
 typedef uint32_t byteptr;
 typedef uint32_t wordptr;
 
-void bcpu_process_interrupt();
-void bcpu_execute_one(bdecode *decode);
-void bcpu_reset();
-void bcpu_step_one();
+void bcpu_process_interrupt(beta_cpu *cpu);
+void bcpu_execute_one(beta_cpu *cpu, bdecode *decode);
+void bcpu_reset(beta_cpu *cpu);
+void bcpu_step_one(beta_cpu *cpu);
 
 static uint32_t beta_read_mem32(beta_cpu *cpu, byteptr addr) __attribute__((always_inline));
 static void beta_write_mem32(beta_cpu *cpu, byteptr addr, uint32_t val) __attribute__((always_inline));

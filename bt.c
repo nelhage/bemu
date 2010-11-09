@@ -41,7 +41,7 @@ extern void bt_continue_chain(void);
 extern void bt_continue_ic(void);
 extern void bt_interrupt(void);
 
-void bt_translate_and_run(uint32_t used, ccbuff chainptr) __attribute__((noreturn, used));
+void bt_translate_and_run(beta_cpu *cpu, uint32_t used, ccbuff chainptr) __attribute__((noreturn, used));
 static ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag);
 
 /*
@@ -160,11 +160,11 @@ static  int bt_alloc_segdesc(uint32_t base, uint32_t pages)
 }
 #endif
 
-int bt_setup_cpu_segment() {
+int bt_setup_cpu_segment(beta_cpu *cpu) {
     uint32_t pages;
 
-    pages = (((CPU.memsize + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)) >> PAGE_SHIFT) - 1;
-    return bt_alloc_segdesc((uint32_t)CPU.memory, pages);
+    pages = (((cpu->memsize + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)) >> PAGE_SHIFT) - 1;
+    return bt_alloc_segdesc((uint32_t)cpu->memory, pages);
 }
 
 void bt_segv(int signal UNUSED, siginfo_t *info UNUSED, void *ctx UNUSED) {
@@ -502,6 +502,10 @@ inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
     *pbuf = buf;
 }
 
+static void __attribute__((used, regparm(1))) bt_step_one(beta_cpu *cpu) {
+    bcpu_step_one(cpu);
+}
+
 inline void bt_translate_interp(ccbuff *pbuf, byteptr pc) {
     // Align %esp on a 16-byte boundary to placate OS X
     X86_SUB_IMM32_RM32(*pbuf, MOD_REG, X86_ESP);
@@ -512,9 +516,11 @@ inline void bt_translate_interp(ccbuff *pbuf, byteptr pc) {
     X86_DISP32(*pbuf, offsetof(beta_cpu, PC));
     X86_IMM32(*pbuf, pc);
 
+    X86_MOV_R32_RM32(*pbuf, X86_EBP, MOD_REG, X86_EAX);
+
     // Call bt_step_one
     X86_CALL_REL32(*pbuf);
-    X86_REL32(*pbuf, bcpu_step_one);
+    X86_REL32(*pbuf, bt_step_one);
 
     X86_ADD_IMM32_RM32(*pbuf, MOD_REG, X86_ESP);
     X86_IMM32(*pbuf, 4);
@@ -538,7 +544,7 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
 
     if(profile_instructions && inst->opcode != OP_CALLOUT) {
         X86_INC_RM32(buf, MOD_INDIR_DISP32, X86_EBP);
-        X86_DISP32(buf, offsetof(beta_cpu, opcode_counts[inst->opcode]));
+        X86_DISP32(buf, offsetof(beta_cpu, opcode_counts) + inst->opcode * sizeof(uint32_t));
     }
 
     switch(inst->opcode) {
@@ -634,7 +640,8 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
     for(i = 0; i < frag->ninsts; i++) {
         if (profile_instructions) {
             X86_INC_RM32(buf, MOD_INDIR_DISP32, X86_EBP);
-            X86_DISP32(buf, offsetof(beta_cpu, opcode_counts[frag->insts[i].opcode]));
+            X86_DISP32(buf, offsetof(beta_cpu, opcode_counts) +
+                       frag->insts[i].opcode * sizeof(uint32_t));
         }
 
         bt_translate_inst(&buf, pc, &frag->insts[i]);
@@ -662,7 +669,7 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
     return buf;
 }
 
-void bt_run() {
+void bt_run(beta_cpu *cpu) {
     if(setjmp(bt_exit_buf)) {
         return;
     }
@@ -687,10 +694,10 @@ void bt_run() {
         bt_clear_cache();
     }
 
-    CPU.segment = bt_setup_cpu_segment();
+    cpu->segment = bt_setup_cpu_segment(cpu);
     bt_setup_segv_handler();
 
-    bt_translate_and_run(1, NULL);
+    bt_translate_and_run(cpu, 1, NULL);
 }
 
 inline bool bt_ends_frag(bdecode *inst) {
@@ -703,18 +710,18 @@ inline bool bt_ends_frag(bdecode *inst) {
         inst->opcode == OP_CALLOUT;
 }
 
-void bt_translate_and_run(uint32_t exact, ccbuff chainptr) {
+void bt_translate_and_run(beta_cpu *cpu, uint32_t exact, ccbuff chainptr) {
     compiled_frag *cfrag;
     decode_frag frag;
     uint32_t inst;
     uint32_t pc;
     int i = 0;
 
-    if(CPU.halt) {
+    if(cpu->halt) {
         longjmp(bt_exit_buf, 1);
     }
 
-    pc = CPU.PC;
+    pc = cpu->PC;
 
     cfrag = bt_find_frag(pc);
 
@@ -722,7 +729,7 @@ void bt_translate_and_run(uint32_t exact, ccbuff chainptr) {
         frag.start_pc = pc;
         frag.tail = FALSE;
         for(i = 0; i < MAX_FRAG_SIZE; i++) {
-            inst = beta_read_mem32(&CPU, pc);
+            inst = beta_read_mem32(cpu, pc);
             decode_op(inst, &frag.insts[i]);
             if(bt_ends_frag(&frag.insts[i])) {
                 frag.tail = TRUE;
@@ -753,6 +760,6 @@ void bt_translate_and_run(uint32_t exact, ccbuff chainptr) {
         LOG("Chaining to frag 0x%08x", cfrag->start_pc);
     }
 
-    __asm__("movw %%ax, %%fs\n" :: "a"(CPU.segment<<3|0x4));
+    __asm__("movw %%ax, %%fs\n" :: "a"(cpu->segment<<3|0x4));
     bt_enter(cfrag->code);
 }

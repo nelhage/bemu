@@ -15,9 +15,13 @@
 _(bt_interrupt):
         mov %eax, 128(%ebp)
         mov _(bt_stack_base), %esp
-        call _(bcpu_process_interrupt)
         sub   $12, %esp
+        pushl %ebp
+        call _(bcpu_process_interrupt)
+        addl  $12, %esp
         pushl $0
+        pushl $0
+        pushl %ebp
         call _(bt_translate_and_run)
 
 _(bt_continue):
@@ -42,17 +46,19 @@ miss:
 _(bt_continue_chain):
         mov %eax, 128(%ebp)
         pushl $1
+        pushl %ebp
         call _(bt_translate_and_run)
 
 _(bt_continue_ic):
         mov %eax, 128(%ebp)
         pushl $0
+        pushl %ebp
         call _(bt_translate_and_run)
 
 _(bt_enter):
         mov 4(%esp), %ecx
         mov _(bt_stack_base), %esp
-        subl $12, %esp
+        subl $8, %esp
         mov $_(CPU), %ebp
         mov 128(%ebp), %eax
         jmp *%ecx
