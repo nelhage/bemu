@@ -15,6 +15,18 @@ static int saved_flags;
 static int kbd_char;
 extern beta_cpu CPU;
 
+class LockMutex {
+private:
+    pthread_mutex_t &mutex;
+public:
+    LockMutex(pthread_mutex_t &m) : mutex(m) {
+        pthread_mutex_lock(&mutex);
+    }
+    ~LockMutex() {
+        pthread_mutex_unlock(&mutex);
+    }
+};
+
 void* console_process(void *arg UNUSED) {
     int err;
     struct pollfd pollfd = {};
@@ -28,16 +40,17 @@ void* console_process(void *arg UNUSED) {
             panic("Poll returned error: %s\n", strerror(errno));
         }
         LOG("Keyboard interrupt!\n");
-        pthread_mutex_lock(&console_mutex);
-        err = read(0, &kbd_char, 1);
+        {
+            LockMutex locked(console_mutex);
+            err = read(0, &kbd_char, 1);
 
-        if(err == 0)
-            kbd_char = -1;
+            if(err == 0)
+                kbd_char = -1;
 
-        set_interrupt(&CPU, INT_KBD);
+            set_interrupt(&CPU, INT_KBD);
 
-        pthread_cond_wait(&console_cond, &console_mutex);
-        pthread_mutex_unlock(&console_mutex);
+            pthread_cond_wait(&console_cond, &console_mutex);
+        }
 
         if(err == 0)
             break;
@@ -95,12 +108,13 @@ void beta_wrchr(int chr) {
 int beta_rdchr() {
     int c;
 
-    pthread_mutex_lock(&console_mutex);
-    c = kbd_char;
-    kbd_char = 0;
-    clear_interrupt(&CPU, INT_KBD);
-    pthread_mutex_unlock(&console_mutex);
-    pthread_cond_signal(&console_cond);
+    {
+        LockMutex locked(console_mutex);
+        c = kbd_char;
+        kbd_char = 0;
+        clear_interrupt(&CPU, INT_KBD);
+        pthread_cond_signal(&console_cond);
+    }
     return c;
 }
 
