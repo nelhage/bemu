@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <signal.h>
+#include <algorithm>
 
 /* Subtract the `struct timeval' values X and Y,
    storing the result in RESULT.
@@ -119,13 +120,11 @@ void handle_options(int argc, char **argv) {
 struct profile_result {
     beta_op op;
     uint32_t count;
-};
 
-int cmp_profile(const void *plhs, const void *prhs) {
-    const struct profile_result *lhs = (const struct profile_result*)plhs;
-    const struct profile_result *rhs = (const struct profile_result*)prhs;
-    return rhs->count - lhs->count;
-}
+    int operator<(const struct profile_result &rhs) const {
+        return count < rhs.count;
+    }
+};
 
 void dump_profile(beta_cpu *cpu) {
     struct profile_result profile[256];
@@ -136,7 +135,7 @@ void dump_profile(beta_cpu *cpu) {
         profile[op].count = cpu->opcode_counts[op];
     }
 
-    qsort(profile, 256, sizeof *profile, cmp_profile);
+    std::sort(profile, profile+256);
 
     for(op = 0; profile[op].count && op < 256; op++) {
         printf("%-15s: %d\n", op_name(profile[op].op), profile[op].count);
