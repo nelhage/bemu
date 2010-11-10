@@ -189,7 +189,11 @@ void bt_segv(int signo UNUSED, siginfo_t *info, void *ctx) {
             if (f->eip == eip)
                 break;
         if (f != fault_table_alloc) {
-            panic("Illegal memory reference (PC=%08x)", f->pc);
+            beta_cpu *cpu = (beta_cpu*)uctx->uc_mcontext.gregs[REG_EBP];
+            bdecode decode;
+            decode_op(cpu->read_mem32(f->pc), &decode);
+            panic("Illegal memory reference (PC=%08x):\n"
+                  "  %s", f->pc, pp_decode(&decode));
         }
     }
     panic("[%08x] Segmentation fault", eip)
