@@ -191,9 +191,24 @@ void bt_segv(int signo UNUSED, siginfo_t *info, void *ctx) {
         if (f != fault_table_alloc) {
             beta_cpu *cpu = (beta_cpu*)uctx->uc_mcontext.gregs[REG_EBP];
             bdecode decode;
+            byteptr addr;
             decode_op(cpu->read_mem32(f->pc), &decode);
-            panic("Illegal memory reference (PC=%08x):\n"
-                  "  %s", f->pc, pp_decode(&decode));
+            switch (decode.opcode) {
+            case OP_LD:
+            case OP_ST:
+                addr = uctx->uc_mcontext.gregs[REG_EAX];
+                break;
+            case OP_LDR:
+                /* Skip the FS prefix, the opcode, and the modrm byte to find
+                   the 32-bit literal displacement */
+                addr = *(uint32_t*)(eip + 3);
+                break;
+            default:
+                panic("Fault from a non-memory opcode?");
+                break;
+            }
+            panic("Illegal memory reference (PC=%08x) %08x:\n"
+                  "  %s", f->pc, addr, pp_decode(&decode));
         }
     }
     panic("[%08x] Segmentation fault", eip)
