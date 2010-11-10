@@ -167,8 +167,14 @@ int bt_setup_cpu_segment(beta_cpu *cpu) {
     return bt_alloc_segdesc((uint32_t)cpu->memory, pages);
 }
 
-void bt_segv(int signal UNUSED, siginfo_t *info UNUSED, void *ctx UNUSED) {
-    panic("Illegal memory reference (UNKNOWN ADDRESS)");
+void bt_segv(int signo UNUSED, siginfo_t *info, void *ctx) {
+    ucontext_t *uctx = (ucontext_t*)ctx;
+    uint8_t *eip = (uint8_t*)uctx->uc_mcontext.gregs[REG_EIP];
+    if (eip >= frag_code_cache && eip < frag_code_alloc) {
+        panic("Illegal memory reference (UNKNOWN ADDRESS)");
+    } else {
+        panic("[%08x] Segmentation fault", eip)
+    }
 }
 
 void bt_setup_segv_handler() {
