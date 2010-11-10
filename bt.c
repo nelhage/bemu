@@ -191,9 +191,8 @@ void bt_segv(int signo UNUSED, siginfo_t *info, void *ctx) {
         if (f != fault_table_alloc) {
             panic("Illegal memory reference (PC=%08x)", f->pc);
         }
-    } else {
-        panic("[%08x] Segmentation fault", eip)
     }
+    panic("[%08x] Segmentation fault", eip)
 }
 
 void bt_setup_segv_handler() {
