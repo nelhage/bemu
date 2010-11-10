@@ -13,18 +13,23 @@
                                          + PC_CHECK_SIZE)
 #define PGSIZE                          0x1000
 
-typedef struct {
+struct decode_frag {
     byteptr start_pc;
     bdecode  insts[MAX_FRAG_SIZE];
     bool     tail;
     uint8_t  ninsts;
-} decode_frag;
+};
 
-typedef struct compiled_frag {
+struct compiled_frag {
     byteptr start_pc;
     struct compiled_frag *hash_next;
     uint8_t *code;
-} compiled_frag;
+};
+
+struct fault_entry {
+    uint8_t *eip;
+    byteptr  pc;
+};
 
 #define HASH_PC(pc) (((pc) >> 2) & 0xFF)
 

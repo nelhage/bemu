@@ -25,6 +25,7 @@ int modify_ldt(int func, struct user_desc *ptr, unsigned long bytes) {
 /* 1MB translation code cache */
 #define BT_CACHE_SIZE  (1 << 20)
 #define BT_CACHE_FRAGS (1 << 12)
+#define BT_FAULT_COUNT BT_CACHE_FRAGS
 
 static jmp_buf bt_exit_buf;
 uint8_t *bt_stack_base = NULL;
@@ -32,6 +33,8 @@ static compiled_frag frag_cache[BT_CACHE_FRAGS];
 static compiled_frag *frag_alloc;
 static uint8_t *frag_code_cache = NULL;
 static uint8_t *frag_code_alloc;
+static fault_entry fault_table[BT_FAULT_COUNT];
+static fault_entry *fault_table_alloc;
 compiled_frag *bt_frag_hash[256];
 
 /* bt_helper.S */
@@ -62,6 +65,7 @@ void bt_clear_cache() {
     LOG("Clearing BT cache");
     frag_alloc = frag_cache;
     frag_code_alloc = frag_code_cache;
+    fault_table_alloc = fault_table;
 
     memset(bt_frag_hash, 0, sizeof bt_frag_hash);
 }
@@ -99,6 +103,15 @@ compiled_frag *bt_find_frag(byteptr PC) {
         frag = frag->hash_next;
     }
     return NULL;
+}
+
+fault_entry *bt_save_fault_entry(uint8_t *eip, byteptr pc) {
+    fault_entry *f = fault_table_alloc++;
+    if (f == fault_table + BT_FAULT_COUNT)
+        panic("Unable to allocate space for a fault table entry!");
+    f->eip = eip;
+    f->pc  = pc;
+    return f;
 }
 
 void bt_insert_frag(compiled_frag *frag) {
@@ -171,7 +184,13 @@ void bt_segv(int signo UNUSED, siginfo_t *info, void *ctx) {
     ucontext_t *uctx = (ucontext_t*)ctx;
     uint8_t *eip = (uint8_t*)uctx->uc_mcontext.gregs[REG_EIP];
     if (eip >= frag_code_cache && eip < frag_code_alloc) {
-        panic("Illegal memory reference (UNKNOWN ADDRESS)");
+        fault_entry *f;
+        for (f = fault_table; f < fault_table_alloc; f++)
+            if (f->eip == eip)
+                break;
+        if (f != fault_table_alloc) {
+            panic("Illegal memory reference (PC=%08x)", f->pc);
+        }
     } else {
         panic("[%08x] Segmentation fault", eip)
     }
@@ -431,6 +450,7 @@ inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_AND_IMM32_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM32(buf, ~(PC_SUPERVISOR | 0x3));
 
+        bt_save_fault_entry(buf, pc);
         X86_BYTE(buf, PREFIX_SEG_FS);
         X86_MOV_R32_RM32(buf, X86_ECX, MOD_INDIR, X86_EAX);
 
@@ -452,6 +472,7 @@ inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_AND_IMM32_RM32(buf, MOD_REG, X86_EAX);
         X86_IMM32(buf, ~(PC_SUPERVISOR | 0x3));
 
+        bt_save_fault_entry(buf, pc);
         X86_BYTE(buf, PREFIX_SEG_FS);
         X86_MOV_RM32_R32(buf, MOD_INDIR, X86_EAX, X86_EAX);
 
@@ -459,6 +480,7 @@ inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         break;
     case OP_LDR:
 
+        bt_save_fault_entry(buf, pc);
         X86_BYTE(buf, PREFIX_SEG_FS);
         X86_MOV_RM32_R32(buf, MOD_INDIR, REG_DISP32, X86_EAX);
         X86_DISP32(buf, ((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03)));
