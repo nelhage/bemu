@@ -1,8 +1,9 @@
+#define _GNU_SOURCE
 #include "bemu.h"
 
 #include <setjmp.h>
 #include <signal.h>
-#include <ucontext.h>
+#include <sys/ucontext.h>
 
 #define PAGE_SIZE       0x1000
 #define PAGE_SHIFT      12
@@ -192,7 +193,7 @@ void bt_segv(int signo UNUSED, siginfo_t *info, void *ctx) {
             beta_cpu *cpu = (beta_cpu*)uctx->uc_mcontext.gregs[REG_EBP];
             bdecode decode;
             byteptr addr;
-            decode_op(cpu->read_mem32(f->pc), &decode);
+            decode_op(beta_read_mem32(cpu, f->pc), &decode);
             switch (decode.opcode) {
             case OP_LD:
             case OP_ST:
