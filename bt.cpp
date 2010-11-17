@@ -105,11 +105,11 @@ compiled_frag *bt_find_frag(byteptr PC) {
     return NULL;
 }
 
-fault_entry *bt_save_fault_entry(uint8_t *eip, byteptr pc) {
+fault_entry *bt_save_fault_entry(X86Assembler *cc, byteptr pc) {
     fault_entry *f = fault_table_alloc++;
     if (f == fault_table + BT_FAULT_COUNT)
         panic("Unable to allocate space for a fault table entry!");
-    f->eip = eip;
+    f->eip = cc->eip();
     f->pc  = pc;
     return f;
 }
@@ -310,8 +310,7 @@ void bt_setup_segv_handler() {
     }                                                                   \
         })
 
-inline void bt_translate_arith(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) {
-    ccbuff buf = *pbuf;
+inline void bt_translate_arith(X86Assembler *buf, byteptr pc UNUSED, bdecode *inst) {
     /* Load %eax with RA, the LHS */
     LOAD_BETA_REG(buf, inst->ra, X86_EAX);
     /* Load %ecx with RB, the RHS */
@@ -367,12 +366,10 @@ inline void bt_translate_arith(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) {
     }
     /* Load %eax into RC */
     WRITE_BETA_REG(buf, X86_EAX, inst->rc);
-    *pbuf = buf;
 }
 
 
-inline void bt_translate_arithc(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) {
-    ccbuff buf = *pbuf;
+inline void bt_translate_arithc(X86Assembler *buf, byteptr pc UNUSED, bdecode *inst) {
     uint32_t constant = inst->imm;
     /* Load %eax with RA, the LHS */
     if(inst->ra == 31) {
@@ -444,11 +441,9 @@ inline void bt_translate_arithc(ccbuff *pbuf, byteptr pc UNUSED, bdecode *inst) 
     }
     /* Load %eax into RC */
     WRITE_BETA_REG(buf, X86_EAX, inst->rc);
-    *pbuf = buf;
 }
 
-inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
-    ccbuff buf = *pbuf;
+inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
     switch(inst->opcode) {
     case OP_ST:
         /* mov regs[RA], %eax
@@ -509,10 +504,9 @@ inline void bt_translate_other(ccbuff *pbuf, byteptr pc, bdecode *inst) {
     default:
         panic("Unable to translate opcode: 0x%02x\n", inst->opcode);
     }
-    *pbuf = buf;
 }
 
-inline void bt_translate_inst(ccbuff *pbuf, byteptr pc, bdecode *inst) {
+inline void bt_translate_inst(X86Assembler *pbuf, byteptr pc, bdecode *inst) {
     switch(OP_CLASS(inst->opcode)) {
     case CLASS_ARITH:
         bt_translate_arith(pbuf, pc, inst);
@@ -531,9 +525,7 @@ inline void bt_translate_inst(ccbuff *pbuf, byteptr pc, bdecode *inst) {
  * At the start of every user-mode fragment, we check for pending
  * interrupts and jump out to `bt_interrupt' to handle them if so.
  */
-inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
-    ccbuff buf = *pbuf;
-
+inline void bt_translate_prologue(X86Assembler *buf, byteptr pc) {
     X86_CMP_IMM32_RM32(buf, MOD_REG, X86_EAX);
     X86_IMM32(buf, pc);
     X86_JCC_REL32(buf, CC_NZ);
@@ -546,7 +538,6 @@ inline void bt_translate_prologue(ccbuff *pbuf, byteptr pc) {
         X86_JCC_REL32(buf, CC_NZ);
         X86_REL32(buf, bt_interrupt);
     }
-    *pbuf = buf;
 }
 
 extern "C" {
@@ -561,35 +552,34 @@ extern "C" {
     }
 };
 
-inline void bt_translate_interp(ccbuff *pbuf, byteptr pc) {
+inline void bt_translate_interp(X86Assembler *buf, byteptr pc) {
     // Align %esp on a 16-byte boundary to placate OS X
-    X86_SUB_IMM32_RM32(*pbuf, MOD_REG, X86_ESP);
-    X86_IMM32(*pbuf, 4);
+    X86_SUB_IMM32_RM32(buf, MOD_REG, X86_ESP);
+    X86_IMM32(buf, 4);
 
     // Save the PC into CPU.PC
-    X86_MOV_IMM32_RM32(*pbuf, MOD_INDIR_DISP32, X86_EBP);
-    X86_DISP32(*pbuf, offsetof(beta_cpu, PC));
-    X86_IMM32(*pbuf, pc);
+    X86_MOV_IMM32_RM32(buf, MOD_INDIR_DISP32, X86_EBP);
+    X86_DISP32(buf, offsetof(beta_cpu, PC));
+    X86_IMM32(buf, pc);
 
-    X86_MOV_R32_RM32(*pbuf, X86_EBP, MOD_REG, X86_EAX);
+    X86_MOV_R32_RM32(buf, X86_EBP, MOD_REG, X86_EAX);
 
     // Call bt_step_one
-    X86_CALL_REL32(*pbuf);
-    X86_REL32(*pbuf, bt_step_one);
+    X86_CALL_REL32(buf);
+    X86_REL32(buf, bt_step_one);
 
-    X86_ADD_IMM32_RM32(*pbuf, MOD_REG, X86_ESP);
-    X86_IMM32(*pbuf, 4);
+    X86_ADD_IMM32_RM32(buf, MOD_REG, X86_ESP);
+    X86_IMM32(buf, 4);
 
     // Save CPU.PC back into %eax
-    X86_MOV_RM32_R32(*pbuf, MOD_INDIR_DISP32, X86_EBP, X86_EAX);
-    X86_DISP32(*pbuf, offsetof(beta_cpu, PC));
+    X86_MOV_RM32_R32(buf, MOD_INDIR_DISP32, X86_EBP, X86_EAX);
+    X86_DISP32(buf, offsetof(beta_cpu, PC));
 
-    X86_CALL_REL32(*pbuf);
-    X86_REL32(*pbuf, bt_continue_chain);
+    X86_CALL_REL32(buf);
+    X86_REL32(buf, bt_continue_chain);
 }
 
-inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
-    ccbuff buf = *pbuf;
+inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
 #define SAVE_PC                                                 \
     if(inst->rc != 31) {                                        \
         X86_MOV_IMM32_RM32(buf, MOD_INDIR_DISP8, X86_EBP);      \
@@ -661,7 +651,7 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_REL32(buf, bt_continue_ic);
         break;
     case OP_CALLOUT:
-        bt_translate_interp(&buf, pc);
+        bt_translate_interp(buf, pc);
         break;
     default:
         /* If we made it here, it's an ILLOP */
@@ -677,11 +667,10 @@ inline void bt_translate_tail(ccbuff *pbuf, byteptr pc, bdecode *inst) {
         X86_CALL_REL32(buf);
         X86_REL32(buf, bt_continue_chain);
     }
-    *pbuf = buf;
 }
 
 ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
-    ccbuff buf = cfrag->code;
+    X86Assembler buf(cfrag->code);
     byteptr pc = frag->start_pc;
     int i;
 
@@ -694,8 +683,8 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
 
     for(i = 0; i < frag->ninsts; i++) {
         if (profile_instructions) {
-            X86_INC_RM32(buf, MOD_INDIR_DISP32, X86_EBP);
-            X86_DISP32(buf, offsetof(beta_cpu, opcode_counts) +
+            X86_INC_RM32(&buf, MOD_INDIR_DISP32, X86_EBP);
+            X86_DISP32(&buf, offsetof(beta_cpu, opcode_counts) +
                        frag->insts[i].opcode * sizeof(uint32_t));
         }
 
@@ -705,9 +694,9 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
 
     /* Update CPU.inst_count */
 
-    X86_ADD_IMM32_RM32(buf, MOD_INDIR_DISP32, X86_EBP);
-    X86_DISP32(buf, offsetof(beta_cpu, inst_count));
-    X86_IMM32(buf, frag->ninsts + (frag->tail ? 1 : 0));
+    X86_ADD_IMM32_RM32(&buf, MOD_INDIR_DISP32, X86_EBP);
+    X86_DISP32(&buf, offsetof(beta_cpu, inst_count));
+    X86_IMM32(&buf, frag->ninsts + (frag->tail ? 1 : 0));
 
     if(frag->tail) {
         bt_translate_tail(&buf, pc, &frag->insts[i]);
@@ -715,13 +704,13 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
         /*
          * default epilogue -- save emulated PC and jump to bt_continue_chain
          */
-        X86_MOV_IMM32_R32(buf, X86_EAX);
-        X86_IMM32(buf, pc);
+        X86_MOV_IMM32_R32(&buf, X86_EAX);
+        X86_IMM32(&buf, pc);
 
-        X86_CALL_REL32(buf);
-        X86_REL32(buf, bt_continue_chain);
+        X86_CALL_REL32(&buf);
+        X86_REL32(&buf, bt_continue_chain);
     }
-    return buf;
+    return buf.eip();
 }
 
 void bt_run(beta_cpu *cpu) {
@@ -810,8 +799,9 @@ void bt_translate_and_run(beta_cpu *cpu, uint32_t exact, ccbuff chainptr) {
 
     if(chainptr) {
         chainptr -= 5;
-        X86_JMP_REL32(chainptr);
-        X86_REL32(chainptr, (exact ? cfrag->code : (cfrag->code - PC_CHECK_SIZE)));
+        X86Assembler cc(chainptr);
+        X86_JMP_REL32(&cc);
+        X86_REL32(&cc, (exact ? cfrag->code : (cfrag->code - PC_CHECK_SIZE)));
         LOG("Chaining to frag 0x%08x", cfrag->start_pc);
     }
 

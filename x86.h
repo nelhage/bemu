@@ -26,6 +26,21 @@ typedef enum {
     X86_EDI = 0x07,
 } x86_reg;
 
+class X86Register {
+public:
+    int val;
+    X86Register(int v) : val(v) {};
+};
+#define R(name, v) static X86Register X86##name(v);
+R(EAX, 0x00);
+R(ECX, 0x01);
+R(EDX, 0x02);
+R(EBX, 0x03);
+R(ESP, 0x04);
+R(EBP, 0x05);
+R(ESI, 0x06);
+R(EDI, 0x07);
+
 #define PREFIX_LOCK     0xF0
 #define PREFIX_REPNZ    0xF2
 #define PREFIX_REPZ     0xF3
@@ -83,28 +98,16 @@ typedef enum {
  */
 #define REG_DISP32       X86_EBP
 
-#define X86_BYTE(ptr, byte) ({                  \
-            uint8_t _byte = (uint8_t)(byte);    \
-            ccbuff _ptr = (ccbuff)(ptr);        \
-            *_ptr = _byte;                      \
-            ptr += sizeof _byte;                \
-        })
+#define X86_BYTE(cc, b) (cc)->byte(b)
 
-#define X86_4BYTE(ptr, val) ({                    \
-            uint32_t _val = (uint32_t)(val);      \
-            ccbuff _ptr = (ccbuff)(ptr);          \
-            *((uint32_t*)_ptr) = _val;            \
-            ptr += sizeof _val;                   \
-        })
+#define X86_4BYTE(cc, val) (cc)->word(val)
 
 /* For readability */
 #define X86_IMM32  X86_4BYTE
 #define X86_DISP32 X86_4BYTE
 #define X86_IMM8   X86_BYTE
 #define X86_DISP8  X86_BYTE
-#define X86_REL32(buf, label) {                                 \
-        X86_IMM32(buf, (uint8_t*)(label) - ((ccbuff)(buf)+4));  \
-    }
+#define X86_REL32(cc, label) (cc)->rel32((uint32_t)label)
 
 #define X86_SIB(ptr, scale, index, base) ({     \
             X86_BYTE(ptr, SIB(scale, index, base));     \
@@ -124,5 +127,45 @@ typedef enum {
  */
 
 #include "opcodes.h"
+
+class X86Assembler {
+private:
+    ccbuff out;
+public:
+    X86Assembler(ccbuff buf) : out(buf) {}
+
+    ccbuff eip() {
+        return out;
+    }
+
+    template <class T>
+    void emit(T v) {
+        *((T*)out) = v;
+        out += sizeof v;
+    }
+
+    void byte(uint8_t b) {
+        emit(b);
+    }
+
+    void address(uint32_t w) {
+        emit(w);
+    }
+
+    void word(uint32_t w) {
+        emit(w);
+    }
+
+    void rel32(uint32_t label) {
+        word(((uint8_t*)label) - out - 4);
+    }
+
+    void modrm(uint8_t mod, uint8_t reg, uint8_t rm) {
+        ASSERT(!(mod & (~0x3)));
+        ASSERT(!(reg & (~0x7)));
+        ASSERT(!(rm  & (~0x7)));
+        byte((uint8_t)(mod << 6)|(reg << 3)|(rm));
+    }
+};
 
 #endif
