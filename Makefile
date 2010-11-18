@@ -5,7 +5,7 @@ LDFLAGS=-m32 -pthread
 SRCS=bemu.cpp bcpu.cpp bdecode.cpp bt.cpp bclock.cpp bconsole.cpp
 ASMSRCS=bt_helper.S
 OBJECTS=$(SRCS:.cpp=.o) $(ASMSRCS:.S=.o)
-GEN_H=opcodes.h
+GEN_H=opcodes.h instructions.h
 HEADERS=$(SRCS:.cpp=.h) $(GEN_H) x86.h
 
 BEMU=bemu
@@ -25,6 +25,8 @@ uasm: $(UASM)
 
 opcodes.h: insts.pl
 	perl insts.pl > opcodes.h
+instructions.h: insts.pl
+	perl $< -cxx > $@
 
 $(OBJECTS): $(HEADERS)
 

@@ -128,6 +128,27 @@ R(EDI, 0x07);
 
 #include "opcodes.h"
 
+/* Begin C++ */
+
+template<uint8_t opcode>
+struct has_opcode {
+    const static uint8_t val = opcode;
+};
+struct none {};
+struct no_opcode  {
+    const static none val;
+};
+
+#include "instructions.h"
+
+class X86Assembler;
+
+template<class Inst, class Tl, class Tr>
+class X86Emitter {
+private:
+    static void emit(X86Assembler *cc, Tl lhs, Tr rhs);
+};
+
 class X86Assembler {
 private:
     ccbuff out;
@@ -165,6 +186,50 @@ public:
         ASSERT(!(reg & (~0x7)));
         ASSERT(!(rm  & (~0x7)));
         byte((uint8_t)(mod << 6)|(reg << 3)|(rm));
+    }
+
+#define INSTRUCTION(fn, cls)                                    \
+    template <class Tl, class Tr>                               \
+    void fn(Tl lhs, Tr rhs) {                                   \
+        X86Emitter<X86##cls, Tl, Tr>::emit(this, lhs, rhs);     \
+    }
+    INSTRUCTION(test, Test);
+    INSTRUCTION(add_, Add);
+    INSTRUCTION(mov, Mov);
+    INSTRUCTION(cmp, Cmp);
+    INSTRUCTION(xor_, Xor);
+    INSTRUCTION(or_, Or);
+    INSTRUCTION(sub_, Sub);
+    INSTRUCTION(lea, Lea);
+    INSTRUCTION(and_, And);
+};
+
+template<class Inst>
+class X86Emitter<Inst, X86Register, X86Register> {
+public:
+    static void emit(X86Assembler *cc, X86Register lhs, X86Register rhs) {
+        cc->byte(Inst::op_imm_rm::val);
+        cc->modrm(MOD_REG, lhs.val, rhs.val);
+    }
+};
+
+template<class Inst>
+class X86Emitter<Inst, uint32_t, X86Register> {
+public:
+    static void emit(X86Assembler *cc, uint32_t lhs, X86Register rhs) {
+        emit(cc, lhs, rhs, Inst::op_imm_r::val);
+    }
+
+    static void emit(X86Assembler *cc, uint32_t lhs, X86Register rhs,
+                     none) {
+        cc->byte(Inst::op_r_rm::val);
+        cc->modrm(MOD_REG, Inst::subop_imm_rm::val, rhs.val);
+    }
+
+    static void emit(X86Assembler *cc, uint32_t lhs, X86Register rhs,
+                     uint8_t op_imm_r) {
+        cc->byte(Inst::op_imm_r::val + rhs.val);
+        cc->word(lhs);
     }
 };
 
