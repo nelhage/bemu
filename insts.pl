@@ -146,9 +146,6 @@ header ('call');
 opcode('call', 'rel32', [], sub {
            byte(h 0xe8);
        });
-opcode('call', 'rel32', [], sub {
-           byte(h 0xe8);
-       });
 opcode('call', 'indir', 'rm32', [qw(mod reg)] => sub {
            byte(h 0xff);
            modrm('mod', h 0x2, 'reg');
