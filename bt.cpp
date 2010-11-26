@@ -775,6 +775,14 @@ void bt_translate_and_run(beta_cpu *cpu, uint32_t exact, ccbuff chainptr) {
 
         frag_code_alloc = bt_translate_frag(cfrag, &frag);
         cfrag->code += PC_CHECK_SIZE;
+        LOG("Compiled %d instructions at 0x%08x.", frag.ninsts, frag.start_pc);
+#if DEBUG >= 2
+        unsigned char *p = cfrag->code;
+        printf("code: ");
+        while (p < frag_code_alloc)
+            printf("%02x ", *p++);
+        printf("\n");
+#endif
 
         bt_insert_frag(cfrag);
     } else {
