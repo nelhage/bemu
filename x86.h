@@ -208,7 +208,7 @@ template<class Inst>
 class X86Emitter<Inst, X86Register, X86Register> {
 public:
     static void emit(X86Assembler *cc, X86Register lhs, X86Register rhs) {
-        cc->byte(Inst::op_imm_rm::val);
+        cc->byte(Inst::op_r_rm::val);
         cc->modrm(MOD_REG, lhs.val, rhs.val);
     }
 };
@@ -217,19 +217,17 @@ template<class Inst>
 class X86Emitter<Inst, uint32_t, X86Register> {
 public:
     static void emit(X86Assembler *cc, uint32_t lhs, X86Register rhs) {
-        emit(cc, lhs, rhs, Inst::op_imm_r::val);
+        emit_(cc, rhs, Inst::op_imm_r::val);
+        cc->word(lhs);
     }
 
-    static void emit(X86Assembler *cc, uint32_t lhs, X86Register rhs,
-                     none) {
-        cc->byte(Inst::op_r_rm::val);
+    static void emit_(X86Assembler *cc, X86Register rhs, none) {
+        cc->byte(Inst::op_imm_rm::val);
         cc->modrm(MOD_REG, Inst::subop_imm_rm::val, rhs.val);
     }
 
-    static void emit(X86Assembler *cc, uint32_t lhs, X86Register rhs,
-                     uint8_t op_imm_r) {
+    static void emit_(X86Assembler *cc, X86Register rhs, uint8_t op_imm_r) {
         cc->byte(Inst::op_imm_r::val + rhs.val);
-        cc->word(lhs);
     }
 };
 
