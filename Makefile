@@ -1,4 +1,4 @@
-CXXFLAGS=-m32 -O2 -g -Wall -pthread
+CXXFLAGS=-m32 -O2 -g -Wall -pthread $(if $(DEBUG),-DDEBUG=$(DEBUG))
 ASFLAGS=-m32
 LDFLAGS=-m32 -pthread
 
