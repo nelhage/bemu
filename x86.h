@@ -188,6 +188,10 @@ public:
         byte((uint8_t)(mod << 6)|(reg << 3)|(rm));
     }
 
+    void sib(uint8_t scale, uint8_t index, uint8_t base) {
+        modrm(scale, index, base);
+    }
+
 #define INSTRUCTION(fn, cls)                                    \
     template <class Tl, class Tr>                               \
     void fn(Tl lhs, Tr rhs) {                                   \
@@ -204,6 +208,81 @@ public:
     INSTRUCTION(and_, And);
 };
 
+
+struct X86ReferenceIndirect {
+    X86Register base;
+    void emit(X86Assembler *cc, X86Register reg) {
+        ASSERT(base.val != REG_DISP32);
+        ASSERT(base.val != REG_SIB);
+        cc->modrm(MOD_INDIR, reg.val, base.val);
+    }
+};
+struct X86ReferenceIndirect32 {
+    X86Register base;
+    uint32_t offset;
+    void emit(X86Assembler *cc, X86Register reg) {
+        ASSERT(base.val != REG_SIB);
+        cc->modrm(MOD_INDIR_DISP32, reg.val, base.val);
+        cc->word(offset);
+    }
+};
+struct X86ReferenceIndirect8 {
+    X86Register base;
+    uint8_t offset;
+    void emit(X86Assembler *cc, X86Register reg) {
+        ASSERT(base.val != REG_SIB);
+        cc->modrm(MOD_INDIR_DISP8, reg.val, base.val);
+        cc->byte(offset);
+    }
+};
+struct X86ReferenceAbs {
+    uint32_t address;
+    void emit(X86Assembler *cc, X86Register reg) {
+        cc->modrm(MOD_INDIR, reg.val, REG_DISP32);
+        cc->word(address);
+    }
+};
+struct X86ReferenceSIB {
+    uint32_t offset;
+    X86Register base, index;
+    uint8_t scale;
+    void emit(X86Assembler *cc, X86Register reg) {
+        uint8_t sv;
+        switch(scale) {
+#define S(n) case n: sv = SCALE_##n
+            S(1); S(2); S(4); S(8);
+#undef S
+        default:
+            panic("Illegal scale value: %d", scale);
+        }
+        cc->modrm(MOD_INDIR_DISP32, reg.val, REG_SIB);
+        cc->sib(sv, index.val, base.val);
+        cc->word(offset);
+    }
+};
+
+static inline X86ReferenceIndirect X86Mem(X86Register reg) {
+    X86ReferenceIndirect r = {reg};
+    return r;
+}
+static inline X86ReferenceIndirect32 X86Mem(X86Register base, uint32_t off) {
+    X86ReferenceIndirect32 r = {base, off};
+    return r;
+}
+static inline X86ReferenceIndirect8 X86Mem(X86Register base, uint8_t off) {
+    X86ReferenceIndirect8 r = {base, off};
+    return r;
+}
+static inline X86ReferenceAbs X86Mem(uint32_t addr) {
+    X86ReferenceAbs r = {addr};
+    return r;
+}
+static inline X86ReferenceSIB X86Mem(uint32_t off, X86Register base, X86Register index, uint8_t scale) {
+    X86ReferenceSIB r = {off, base, index, scale};
+    return r;
+}
+
+/* reg, reg */
 template<class Inst>
 class X86Emitter<Inst, X86Register, X86Register> {
 public:
@@ -213,6 +292,7 @@ public:
     }
 };
 
+/* imm, reg */
 template<class Inst>
 class X86Emitter<Inst, uint32_t, X86Register> {
 public:
@@ -228,6 +308,37 @@ public:
 
     static void emit_(X86Assembler *cc, X86Register rhs, uint8_t op_imm_r) {
         cc->byte(Inst::op_imm_r::val + rhs.val);
+    }
+};
+
+/* imm, mem */
+template<class Inst, class Mem>
+class X86Emitter<Inst, uint32_t, Mem> {
+public:
+    static void emit(X86Assembler *cc,  uint32_t lhs, Mem rhs) {
+        cc->byte(Inst::op_imm_rm::val);
+        rhs.emit(cc, X86Register(Inst::subop_imm_rm::val));
+        cc->word(lhs);
+    }
+};
+
+/* reg, mem */
+template<class Inst, class Mem>
+class X86Emitter<Inst, X86Register, Mem> {
+public:
+    static void emit(X86Assembler *cc,  X86Register lhs, Mem rhs) {
+        cc->byte(Inst::op_r_rm::val);
+        rhs.emit(cc, lhs);
+    }
+};
+
+/* mem, reg */
+template<class Inst, class Mem>
+class X86Emitter<Inst, Mem, X86Register> {
+public:
+    static void emit(X86Assembler *cc,  Mem lhs, X86Register rhs) {
+        cc->byte(Inst::op_rm_r::val);
+        lhs.emit(cc, rhs);
     }
 };
 
