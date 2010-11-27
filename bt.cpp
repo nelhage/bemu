@@ -293,30 +293,28 @@ void bt_setup_segv_handler() {
  * it. bt_continue_chain sets the flag, bt_continue_ic does not.
  */
 
-#define LOAD_BETA_REG(buf, breg, x86reg) ({                             \
-    uint8_t __reg = (breg);                                             \
-    if(__reg == 31) {                                                   \
-        (buf)->xor_(X86Register(x86reg), X86Register(x86reg));          \
-    } else {                                                            \
-        (buf)->mov(X86Mem(X86EBP, (uint8_t)(offsetof(beta_cpu, regs)    \
-                                            + 4*__reg)),                \
-                   X86Register(x86reg));                                \
-    }                                                                   \
-        })
-#define WRITE_BETA_REG(buf, x86reg, breg) ({                            \
-    uint8_t __reg = (breg);                                             \
-    if(__reg != 31) {                                                   \
-        (buf)->mov(X86Register(x86reg),                                 \
-                   X86Mem(X86EBP, (uint8_t)(offsetof(beta_cpu, regs)    \
-                                            + 4*__reg)));               \
-    }                                                                   \
-        })
+static X86ReferenceIndirect8 bt_register_address(uint8_t reg) {
+    return X86Mem(X86EBP, (uint8_t)(offsetof(beta_cpu, regs)
+                                    + 4*reg));
+}
+
+void bt_load_reg(X86Assembler *cc, uint8_t breg, X86Register reg) {
+    if (breg == 31)
+        cc->xor_(reg, reg);
+    else
+        cc->mov(bt_register_address(breg), reg);
+}
+
+void bt_store_reg(X86Assembler *cc, X86Register reg, uint8_t breg) {
+    if (breg != 31)
+        cc->mov(reg, bt_register_address(breg));
+}
 
 inline void bt_translate_arith(X86Assembler *buf, byteptr pc UNUSED, bdecode *inst) {
     /* Load %eax with RA, the LHS */
-    LOAD_BETA_REG(buf, inst->ra, X86_EAX);
+    bt_load_reg(buf, inst->ra, X86EAX);
     /* Load %ecx with RB, the RHS */
-    LOAD_BETA_REG(buf, inst->rb, X86_ECX);
+    bt_load_reg(buf, inst->rb, X86ECX);
 
     switch(inst->opcode) {
     case OP_ADD:
@@ -366,14 +364,14 @@ inline void bt_translate_arith(X86Assembler *buf, byteptr pc UNUSED, bdecode *in
         panic("Unknown arithmetic opcode: 0x%02x\n", inst->opcode);
     }
     /* Load %eax into RC */
-    WRITE_BETA_REG(buf, X86_EAX, inst->rc);
+    bt_store_reg(buf, X86EAX, inst->rc);
 }
 
 
 inline void bt_translate_arithc(X86Assembler *buf, byteptr pc UNUSED, bdecode *inst) {
     uint32_t constant = inst->imm;
     /* Load %eax with RA, the LHS */
-    LOAD_BETA_REG(buf, inst->ra, X86_EAX);
+    bt_load_reg(buf, inst->ra, X86EAX);
 
     switch(inst->opcode) {
     case OP_ADDC:
@@ -430,7 +428,7 @@ inline void bt_translate_arithc(X86Assembler *buf, byteptr pc UNUSED, bdecode *i
         panic("Unknown constant arithmetic opcode: 0x%02x\n", inst->opcode);
     }
     /* Load %eax into RC */
-    WRITE_BETA_REG(buf, X86_EAX, inst->rc);
+    bt_store_reg(buf, X86EAX, inst->rc);
 }
 
 inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
@@ -442,13 +440,13 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
          * and $7FFFFFFC, %eax
          * mov %ecx, mem[%eax]
          */
-        LOAD_BETA_REG(buf, inst->ra, X86_EAX);
+        bt_load_reg(buf, inst->ra, X86EAX);
 
         if(inst->imm) {
             buf->add_((uint32_t)inst->imm, X86EAX);
         }
 
-        LOAD_BETA_REG(buf, inst->rc, X86_ECX);
+        bt_load_reg(buf, inst->rc, X86ECX);
 
         buf->and_((uint32_t)~(PC_SUPERVISOR | 0x3), X86EAX);
 
@@ -464,7 +462,7 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
          * mov mem[%eax], eax
          * mov $eax, regs[RC]
          */
-        LOAD_BETA_REG(buf, inst->ra, X86_EAX);
+        bt_load_reg(buf, inst->ra, X86EAX);
 
         if(inst->imm)
             buf->add_((uint32_t)inst->imm, X86EAX);
@@ -475,7 +473,7 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
         buf->byte(PREFIX_SEG_FS);
         buf->mov(X86Mem(X86EAX), X86EAX);
 
-        WRITE_BETA_REG(buf, X86_EAX, inst->rc);
+        bt_store_reg(buf, X86EAX, inst->rc);
         break;
     case OP_LDR:
 
@@ -484,7 +482,7 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
         buf->mov(X86Mem(((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03))),
                  X86EAX);
 
-        WRITE_BETA_REG(buf, X86_EAX, inst->rc);
+        bt_store_reg(buf, X86EAX, inst->rc);
         break;
     default:
         panic("Unable to translate opcode: 0x%02x\n", inst->opcode);
@@ -617,7 +615,7 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
         break;
     case OP_JMP:
         SAVE_PC;
-        LOAD_BETA_REG(buf, inst->ra, X86_EAX);
+        bt_load_reg(buf, inst->ra, X86EAX);
 
         buf->and_((pc & PC_SUPERVISOR) | ~(PC_SUPERVISOR|0x3), X86EAX);
 
