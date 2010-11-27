@@ -24,36 +24,41 @@ print <<END_WARNING;
 END_WARNING
 
 if (($ARGV[0]||"") eq "-cxx") {
+    sub line {
+        printf '   typedef %-17s %s;'."\n", $_[0], $_[1];
+    }
+    sub no_opcode {
+        line('no_opcode', $_[0]);
+    }
+    sub has_opcode {
+        line((sprintf 'has_opcode<0x%x>', $_[0]), $_[1]);
+    }
+    sub one {
+        my $name = shift;
+        my $opc = shift;
+        if ($opc) {
+            has_opcode($opc, "op_$name");
+        } else {
+            no_opcode("op_$name");
+        }
+    }
+    sub pair {
+        my $name = shift;
+        my $opc = shift;
+        if ($opc) {
+            has_opcode($opc->[0], "op_$name");
+            has_opcode($opc->[1], "subop_$name");
+        } else {
+            no_opcode("op_$name");
+            no_opcode("subop_$name");
+        }
+    }
     while (my ($mnm, $opc) = each %arith) {
-        sub line {
-            printf '   typedef %-17s %s;'."\n", $_[0], $_[1];
-        }
-        sub no_opcode {
-            line('no_opcode', $_[0]);
-        }
-        sub has_opcode {
-            line((sprintf 'has_opcode<0x%x>', $_[0]), $_[1]);
-        }
-        sub one {
-            my $name = shift;
-            my $opc = shift;
-            if ($opc) {
-                has_opcode($opc, "op_$name");
-            } else {
-                no_opcode("op_$name");
-            }
-        }
         print "struct X86" . ucfirst$mnm . " {\n";
         one("imm_r", shift @$opc);
-        if (my $imm_rm = shift @$opc) {
-            has_opcode($imm_rm->[0], "op_imm_rm");
-            has_opcode($imm_rm->[1], "subop_imm_rm");
-        } else {
-            no_opcode("op_imm_rm");
-        }
+        pair("imm_rm", shift @$opc);
         one("r_rm", shift @$opc);
         one("rm_r", shift @$opc);
-
         print "};\n\n";
     }
     exit 0;
