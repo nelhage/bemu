@@ -26,21 +26,6 @@ typedef enum {
     X86_EDI = 0x07,
 } x86_reg;
 
-class X86Register {
-public:
-    int val;
-    X86Register(int v) : val(v) {};
-};
-#define R(name, v) static X86Register X86##name(v);
-R(EAX, 0x00);
-R(ECX, 0x01);
-R(EDX, 0x02);
-R(EBX, 0x03);
-R(ESP, 0x04);
-R(EBP, 0x05);
-R(ESI, 0x06);
-R(EDI, 0x07);
-
 #define PREFIX_LOCK     0xF0
 #define PREFIX_REPNZ    0xF2
 #define PREFIX_REPZ     0xF3
@@ -208,6 +193,23 @@ public:
     INSTRUCTION(and_, And);
 };
 
+class X86Register {
+public:
+    int val;
+    X86Register(int v) : val(v) {};
+    void emit(X86Assembler *cc, X86Register reg) {
+        cc->modrm(MOD_REG, reg.val, val);
+    }
+};
+#define R(name, v) static X86Register X86##name(v);
+R(EAX, 0x00);
+R(ECX, 0x01);
+R(EDX, 0x02);
+R(EBX, 0x03);
+R(ESP, 0x04);
+R(EBP, 0x05);
+R(ESI, 0x06);
+R(EDI, 0x07);
 
 struct X86ReferenceIndirect {
     X86Register base;
@@ -282,16 +284,6 @@ static inline X86ReferenceSIB X86Mem(uint32_t off, X86Register base, X86Register
     return r;
 }
 
-/* reg, reg */
-template<class Inst>
-class X86Emitter<Inst, X86Register, X86Register> {
-public:
-    static void emit(X86Assembler *cc, X86Register lhs, X86Register rhs) {
-        cc->byte(Inst::op_r_rm::val);
-        cc->modrm(MOD_REG, lhs.val, rhs.val);
-    }
-};
-
 /* imm, reg */
 template<class Inst>
 class X86Emitter<Inst, uint32_t, X86Register> {
@@ -311,7 +303,7 @@ public:
     }
 };
 
-/* imm, mem */
+/* imm, rm */
 template<class Inst, class Mem>
 class X86Emitter<Inst, uint32_t, Mem> {
 public:
@@ -322,7 +314,27 @@ public:
     }
 };
 
-/* reg, mem */
+/* reg, reg */
+template<class Inst>
+class X86Emitter<Inst, X86Register, X86Register> {
+public:
+    static void emit(X86Assembler *cc,  X86Register lhs, X86Register rhs) {
+        emit(cc, lhs, rhs, Inst::op_r_rm::val);
+    }
+    static void emit(X86Assembler *cc,  X86Register lhs, X86Register rhs,
+                     none) {
+        cc->byte(Inst::op_rm_r::val);
+        lhs.emit(cc, rhs);
+    }
+    static void emit(X86Assembler *cc,  X86Register lhs, X86Register rhs,
+                     uint8_t) {
+        cc->byte(Inst::op_r_rm::val);
+        rhs.emit(cc, lhs);
+    }
+
+};
+
+/* reg, rm */
 template<class Inst, class Mem>
 class X86Emitter<Inst, X86Register, Mem> {
 public:
@@ -332,7 +344,7 @@ public:
     }
 };
 
-/* mem, reg */
+/* rm, reg */
 template<class Inst, class Mem>
 class X86Emitter<Inst, Mem, X86Register> {
 public:
