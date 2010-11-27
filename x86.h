@@ -127,17 +127,33 @@ struct no_opcode  {
 #include "instructions.h"
 
 class X86Assembler;
+class X86Register;
 
-template<class Inst, class Tl, class Tr>
+template<class Inst>
 class X86Emitter {
-private:
-    static void emit(X86Assembler *cc, Tl lhs, Tr rhs);
+ public:
+    static void emit(X86Assembler *cc, uint32_t lhs, X86Register rhs);
+    static void emit_imm(X86Assembler *cc, X86Register rhs, none);
+    static void emit_imm(X86Assembler *cc, X86Register rhs, uint8_t);
+
+    template <class Mem>
+    static void emit(X86Assembler *cc, uint32_t lhs, Mem rhs);
+    static void emit(X86Assembler *cc, X86Register lhs, X86Register rhs);
+    static void emit_reg(X86Assembler *cc,  X86Register lhs, X86Register rhs, none);
+    static void emit_reg(X86Assembler *cc,  X86Register lhs, X86Register rhs, uint8_t);
+    template <class Mem>
+    static void emit(X86Assembler *cc, X86Register lhs, Mem rhs);
+    template <class Mem>
+    static void emit(X86Assembler *cc, Mem lhs, X86Register rhs);
 };
 
-template<class Inst, class Tl, class Tr>
+template<class Inst>
 class X86ShiftEmitter {
-private:
-    static void emit(X86Assembler *cc, Tl lhs, Tr rhs);
+public:
+    template <class Mem>
+    static void emit(X86Assembler *cc, X86Register, Mem);
+    template <class Mem>
+    static void emit(X86Assembler *cc, uint8_t, Mem);
 };
 
 class X86Assembler {
@@ -186,7 +202,7 @@ public:
 #define INSTRUCTION(fn, cls)                                    \
     template <class Tl, class Tr>                               \
     void fn(Tl lhs, Tr rhs) {                                   \
-        X86Emitter<X86##cls, Tl, Tr>::emit(this, lhs, rhs);     \
+        X86Emitter<X86##cls>::emit(this, lhs, rhs);             \
     }
     INSTRUCTION(test, Test);
     INSTRUCTION(add_, Add);
@@ -201,7 +217,7 @@ public:
 #define SHIFT(fn, cls)                                                  \
     template <class Tl, class Tr>                                       \
         void fn(Tl lhs, Tr rhs) {                                       \
-        X86ShiftEmitter<X86##cls, Tl, Tr>::emit(this, lhs, rhs);        \
+        X86ShiftEmitter<X86##cls>::emit(this, lhs, rhs);                \
     }
     SHIFT(shl, SHL);
     SHIFT(shr, SHR);
@@ -299,94 +315,80 @@ static inline X86ReferenceSIB X86Mem(uint32_t off, X86Register base, X86Register
     return r;
 }
 
-/* imm, reg */
 template<class Inst>
-class X86Emitter<Inst, uint32_t, X86Register> {
-public:
-    static void emit(X86Assembler *cc, uint32_t lhs, X86Register rhs) {
-        emit_(cc, rhs, Inst::op_imm_r::val);
-        cc->word(lhs);
-    }
+inline void X86Emitter<Inst>::emit(X86Assembler *cc, uint32_t lhs, X86Register rhs) {
+    emit_imm(cc, rhs, Inst::op_imm_r::val);
+    cc->word(lhs);
+}
 
-    static void emit_(X86Assembler *cc, X86Register rhs, none) {
-        cc->byte(Inst::op_imm_rm::val);
-        cc->modrm(MOD_REG, Inst::subop_imm_rm::val, rhs.val);
-    }
-
-    static void emit_(X86Assembler *cc, X86Register rhs, uint8_t op_imm_r) {
-        cc->byte(Inst::op_imm_r::val + rhs.val);
-    }
-};
-
-/* imm, rm */
-template<class Inst, class Mem>
-class X86Emitter<Inst, uint32_t, Mem> {
-public:
-    static void emit(X86Assembler *cc,  uint32_t lhs, Mem rhs) {
-        cc->byte(Inst::op_imm_rm::val);
-        rhs.emit(cc, X86Register(Inst::subop_imm_rm::val));
-        cc->word(lhs);
-    }
-};
-
-/* reg, reg */
 template<class Inst>
-class X86Emitter<Inst, X86Register, X86Register> {
-public:
-    static void emit(X86Assembler *cc,  X86Register lhs, X86Register rhs) {
-        emit(cc, lhs, rhs, Inst::op_r_rm::val);
-    }
-    static void emit(X86Assembler *cc,  X86Register lhs, X86Register rhs,
-                     none) {
-        cc->byte(Inst::op_rm_r::val);
-        lhs.emit(cc, rhs);
-    }
-    static void emit(X86Assembler *cc,  X86Register lhs, X86Register rhs,
-                     uint8_t) {
-        cc->byte(Inst::op_r_rm::val);
-        rhs.emit(cc, lhs);
-    }
+inline void X86Emitter<Inst>::emit_imm(X86Assembler *cc, X86Register rhs, none) {
+    cc->byte(Inst::op_imm_rm::val);
+    cc->modrm(MOD_REG, Inst::subop_imm_rm::val, rhs.val);
+}
 
-};
+template<class Inst>
+inline void X86Emitter<Inst>::emit_imm(X86Assembler *cc, X86Register rhs, uint8_t op_imm_r) {
+    cc->byte(Inst::op_imm_r::val + rhs.val);
+}
+
+template<class Inst>
+template<class Mem>
+inline void X86Emitter<Inst>::emit(X86Assembler *cc,  uint32_t lhs, Mem rhs) {
+    cc->byte(Inst::op_imm_rm::val);
+    rhs.emit(cc, X86Register(Inst::subop_imm_rm::val));
+    cc->word(lhs);
+}
+
+template<class Inst>
+inline void X86Emitter<Inst>::emit(X86Assembler *cc,  X86Register lhs, X86Register rhs) {
+    emit_reg(cc, lhs, rhs, Inst::op_r_rm::val);
+}
+
+template<class Inst>
+inline void X86Emitter<Inst>::emit_reg(X86Assembler *cc,  X86Register lhs, X86Register rhs,
+                                       none) {
+    cc->byte(Inst::op_rm_r::val);
+    lhs.emit(cc, rhs);
+}
+
+template<class Inst>
+inline void X86Emitter<Inst>::emit_reg(X86Assembler *cc,  X86Register lhs, X86Register rhs,
+                                       uint8_t) {
+    cc->byte(Inst::op_r_rm::val);
+    rhs.emit(cc, lhs);
+}
 
 /* reg, rm */
-template<class Inst, class Mem>
-class X86Emitter<Inst, X86Register, Mem> {
-public:
-    static void emit(X86Assembler *cc,  X86Register lhs, Mem rhs) {
-        cc->byte(Inst::op_r_rm::val);
-        rhs.emit(cc, lhs);
-    }
-};
+template<class Inst>
+template<class Mem>
+inline void X86Emitter<Inst>::emit(X86Assembler *cc,  X86Register lhs, Mem rhs) {
+    cc->byte(Inst::op_r_rm::val);
+    rhs.emit(cc, lhs);
+}
 
 /* rm, reg */
-template<class Inst, class Mem>
-class X86Emitter<Inst, Mem, X86Register> {
-public:
-    static void emit(X86Assembler *cc,  Mem lhs, X86Register rhs) {
-        cc->byte(Inst::op_rm_r::val);
-        lhs.emit(cc, rhs);
-    }
-};
+template<class Inst>
+template<class Mem>
+inline void X86Emitter<Inst>::emit(X86Assembler *cc,  Mem lhs, X86Register rhs) {
+    cc->byte(Inst::op_rm_r::val);
+    lhs.emit(cc, rhs);
+}
 
-template<class Inst, class Mem>
-class X86ShiftEmitter<Inst, X86Register, Mem> {
-public:
-    static void emit(X86Assembler *cc, X86Register lhs, Mem rhs) {
-        ASSERT(lhs.val == X86ECX.val);
-        cc->byte(Inst::op_cl::val);
-        rhs.emit(cc, X86Register(Inst::subop_cl::val));
-    }
-};
+template<class Inst>
+template<class Mem>
+inline void X86ShiftEmitter<Inst>::emit(X86Assembler *cc, X86Register lhs, Mem rhs) {
+    ASSERT(lhs.val == X86ECX.val);
+    cc->byte(Inst::op_cl::val);
+    rhs.emit(cc, X86Register(Inst::subop_cl::val));
+}
 
-template<class Inst, class Mem>
-class X86ShiftEmitter<Inst, uint8_t, Mem> {
-public:
-    static void emit(X86Assembler *cc, uint8_t lhs, Mem rhs) {
-        cc->byte(Inst::op_imm::val);
-        rhs.emit(cc, X86Register(Inst::subop_imm::val));
-        cc->byte(lhs);
-    }
-};
+template<class Inst>
+template<class Mem>
+inline void X86ShiftEmitter<Inst>::emit(X86Assembler *cc, uint8_t lhs, Mem rhs) {
+    cc->byte(Inst::op_imm::val);
+    rhs.emit(cc, X86Register(Inst::subop_imm::val));
+    cc->byte(lhs);
+}
 
 #endif
