@@ -557,9 +557,7 @@ inline void bt_translate_interp(X86Assembler *buf, byteptr pc) {
 inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
 #define SAVE_PC                                                 \
     if(inst->rc != 31) {                                        \
-        buf->mov(pc + 4,                                        \
-                 X86Mem(X86_EBP,                                \
-                        (uint8_t)(offsetof(beta_cpu, regs)+ 4*inst->rc))); \
+        buf->mov(pc + 4, bt_register_address(inst->rc));        \
     }
 
     if(profile_instructions && inst->opcode != OP_CALLOUT) {
@@ -593,9 +591,7 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
              * call  bt_continue_chain
              */
 
-            buf->cmp((uint32_t)0,
-                     X86Mem(X86EBP,
-                            (uint8_t)(offsetof(beta_cpu, regs) + 4 * inst->ra)));
+            buf->cmp((uint32_t)0, bt_register_address(inst->ra));
 
             SAVE_PC;
 
@@ -629,7 +625,7 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
         /* If we made it here, it's an ILLOP */
         ASSERT(!decode_valid(inst));
         /* XP = PC + 4*/
-        buf->mov(pc + 4, X86Mem(X86EBP, (uint8_t)(offsetof(beta_cpu, regs) + 4*XP)));
+        buf->mov(pc + 4, bt_register_address(XP));
         buf->mov(ISR_ILLOP, X86EAX);
 
         X86_CALL_REL32(buf);
