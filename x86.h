@@ -134,6 +134,12 @@ private:
     static void emit(X86Assembler *cc, Tl lhs, Tr rhs);
 };
 
+template<class Inst, class Tl, class Tr>
+class X86ShiftEmitter {
+private:
+    static void emit(X86Assembler *cc, Tl lhs, Tr rhs);
+};
+
 class X86Assembler {
 private:
     ccbuff out;
@@ -191,6 +197,15 @@ public:
     INSTRUCTION(sub_, Sub);
     INSTRUCTION(lea, Lea);
     INSTRUCTION(and_, And);
+
+#define SHIFT(fn, cls)                                                  \
+    template <class Tl, class Tr>                                       \
+        void fn(Tl lhs, Tr rhs) {                                       \
+        X86ShiftEmitter<X86##cls, Tl, Tr>::emit(this, lhs, rhs);        \
+    }
+    SHIFT(shl, SHL);
+    SHIFT(shr, SHR);
+    SHIFT(sar, SAR);
 };
 
 class X86Register {
@@ -351,6 +366,26 @@ public:
     static void emit(X86Assembler *cc,  Mem lhs, X86Register rhs) {
         cc->byte(Inst::op_rm_r::val);
         lhs.emit(cc, rhs);
+    }
+};
+
+template<class Inst, class Mem>
+class X86ShiftEmitter<Inst, X86Register, Mem> {
+public:
+    static void emit(X86Assembler *cc, X86Register lhs, Mem rhs) {
+        ASSERT(lhs.val == X86ECX.val);
+        cc->byte(Inst::op_cl::val);
+        rhs.emit(cc, X86Register(Inst::subop_cl::val));
+    }
+};
+
+template<class Inst, class Mem>
+class X86ShiftEmitter<Inst, uint8_t, Mem> {
+public:
+    static void emit(X86Assembler *cc, uint8_t lhs, Mem rhs) {
+        cc->byte(Inst::op_imm::val);
+        rhs.emit(cc, X86Register(Inst::subop_imm::val));
+        cc->byte(lhs);
     }
 };
 

@@ -14,6 +14,12 @@ my %arith = (   # imm, r   imm, r/m      r, r/m       r/m, r
     xor     =>  [ undef,   [0x81, 6],    0x31,        0x33   ]
    );
 
+my %shifts = ( # CL            imm8
+    shl =>      [[0xD3, 4],    [0xC1, 4]],
+    shr =>      [[0xD3, 5],    [0xC1, 5]],
+    sar =>      [[0xD3, 7],    [0xC1, 7]],
+    );
+
 sub h($) {sprintf "0x%02x", shift}
 
 print <<END_WARNING;
@@ -53,13 +59,25 @@ if (($ARGV[0]||"") eq "-cxx") {
             no_opcode("subop_$name");
         }
     }
+    sub begin {
+        print "struct X86" . ucfirst(shift) . " {\n";
+    }
+    sub end {
+        print "};\n\n";
+    }
     while (my ($mnm, $opc) = each %arith) {
-        print "struct X86" . ucfirst$mnm . " {\n";
+        begin($mnm);
         one("imm_r", shift @$opc);
         pair("imm_rm", shift @$opc);
         one("r_rm", shift @$opc);
         one("rm_r", shift @$opc);
-        print "};\n\n";
+        end();
+    }
+    while (my ($mnm, $opc) = each %shifts) {
+        begin(uc $mnm);
+        pair("cl", shift @$opc);
+        pair("imm", shift @$opc);
+        end();
     }
     exit 0;
 }
@@ -98,12 +116,6 @@ while (my ($mnm, $opc) = each %arith) {
                });
     }
 }
-
-my %shifts = ( # CL            imm8
-    shl =>      [[0xD3, 4],    [0xC1, 4]],
-    shr =>      [[0xD3, 5],    [0xC1, 5]],
-    sar =>      [[0xD3, 7],    [0xC1, 7]],
-    );
 
 while(my ($mnm, $spec) = each %shifts) {
     my $cl = shift @$spec;

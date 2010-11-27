@@ -340,13 +340,13 @@ inline void bt_translate_arith(X86Assembler *buf, byteptr pc UNUSED, bdecode *in
         X86_IDIV_RM32(buf, MOD_REG, X86_ECX);
         break;
     case OP_SHL:
-        X86_SHL_CL_RM32(buf, MOD_REG, X86_EAX);
+        buf->shl(X86ECX, X86EAX);
         break;
     case OP_SHR:
-        X86_SHR_CL_RM32(buf, MOD_REG, X86_EAX);
+        buf->shr(X86ECX, X86EAX);
         break;
     case OP_SRA:
-        X86_SAR_CL_RM32(buf, MOD_REG, X86_EAX);
+        buf->sar(X86ECX, X86EAX);
         break;
     case OP_CMPLT:
     case OP_CMPEQ:
@@ -400,16 +400,13 @@ inline void bt_translate_arithc(X86Assembler *buf, byteptr pc UNUSED, bdecode *i
         buf->xor_(constant, X86EAX);
         break;
     case OP_SHLC:
-        X86_SHL_IMM8_RM32(buf, MOD_REG, X86_EAX);
-        X86_IMM8(buf, constant & 0x1F);
+        buf->shl((uint8_t)(constant & 0x1F), X86EAX);
         break;
     case OP_SHRC:
-        X86_SHR_IMM8_RM32(buf, MOD_REG, X86_EAX);
-        X86_IMM8(buf, constant & 0x1F);
+        buf->shr((uint8_t)(constant & 0x1F), X86EAX);
         break;
     case OP_SRAC:
-        X86_SAR_IMM8_RM32(buf, MOD_REG, X86_EAX);
-        X86_IMM8(buf, constant & 0x1F);
+        buf->sar((uint8_t)(constant & 0x1F), X86EAX);
         break;
     case OP_CMPLTC:
     case OP_CMPEQC:
