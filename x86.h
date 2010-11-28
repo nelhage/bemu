@@ -223,21 +223,16 @@ public:
     SHIFT(shr, SHR);
     SHIFT(sar, SAR);
 
-    template<class Mem>
-    void imul(Mem lhs, X86Register rhs);
-
-    template<class Mem>
-    void imul(uint32_t lhs, Mem rhs, X86Register dst);
-
-    template<class Mem>
-    void idiv(Mem rhs);
-
+    template<class Mem> void imul(Mem lhs, X86Register rhs);
+    template<class Mem> void imul(uint32_t lhs, Mem rhs, X86Register dst);
+    template<class Mem> void idiv(Mem rhs);
     void cdq();
-
+    
     void call(uint32_t addr);
+    template<class Mem> void call(Mem target);
 
-    template<class Mem>
-    void call(Mem target);
+    template<class Mem> void inc(Mem target);
+
 };
 
 class X86Register {
@@ -444,6 +439,12 @@ template<class Mem>
 inline void X86Assembler::call(Mem target) {
     byte(0xff);
     target.emit(this, X86Register(0x2));
+}
+
+template<class Mem>
+inline void X86Assembler::inc(Mem target) {
+    byte(0xff);
+    target.emit(this, X86Register(0x0));
 }
 
 
