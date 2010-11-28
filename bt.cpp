@@ -505,14 +505,12 @@ inline void bt_translate_inst(X86Assembler *pbuf, byteptr pc, bdecode *inst) {
  */
 inline void bt_translate_prologue(X86Assembler *buf, byteptr pc) {
     buf->cmp((uint32_t)pc, X86EAX);
-    X86_JCC_REL32(buf, CC_NZ);
-    X86_REL32(buf, bt_continue);
+    buf->jcc(CC_NZ, (uint8_t*)bt_continue);
 
     if(!(pc & PC_SUPERVISOR)) {
         buf->test((uint32_t)-1,
                   X86Mem(X86EBP, offsetof(beta_cpu, pending_interrupts)));
-        X86_JCC_REL32(buf, CC_NZ);
-        X86_REL32(buf, bt_interrupt);
+        buf->jcc(CC_NZ, (uint8_t*)bt_interrupt);
     }
 }
 
@@ -584,11 +582,8 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
 
             SAVE_PC;
 
-            X86_JCC_REL8(buf, inst->opcode == OP_BT ? CC_NZ : CC_Z);
-            X86_DISP8(buf, 10);
-
+            buf->jcc(inst->opcode == OP_BT ? CC_NZ : CC_Z, 10);
             buf->mov(pc + 4, X86EAX);
-
             buf->call((uint32_t)bt_continue_chain);
             buf->mov((pc + 4 + 4*inst->imm) & ~0x03, X86EAX);
             buf->call((uint32_t)bt_continue_chain);
@@ -750,8 +745,7 @@ void bt_translate_and_run(beta_cpu *cpu, uint32_t exact, ccbuff chainptr) {
     if(chainptr) {
         chainptr -= 5;
         X86Assembler cc(chainptr);
-        X86_JMP_REL32(&cc);
-        X86_REL32(&cc, (exact ? cfrag->code : (cfrag->code - PC_CHECK_SIZE)));
+        cc.jmp((exact ? cfrag->code : (cfrag->code - PC_CHECK_SIZE)));
         LOG("Chaining to frag 0x%08x", cfrag->start_pc);
     }
 

@@ -71,6 +71,8 @@ typedef enum {
 #define CC_LE 0xE
 #define CC_G  0xF
 
+typedef uint8_t cc_t;
+
 /*
  * Using this as a register argument in the r/m field indicates an SIB
  * byte follows (with mod != 3)
@@ -233,6 +235,12 @@ public:
 
     template<class Mem> void inc(Mem target);
 
+    void jmp(int8_t off);
+    void jmp(uint8_t *addr);
+    template<class Mem> void jmp(Mem target);
+
+    void jcc(cc_t cc, int8_t off);
+    void jcc(cc_t cc, uint8_t *addr);
 };
 
 class X86Register {
@@ -446,6 +454,34 @@ inline void X86Assembler::inc(Mem target) {
     byte(0xff);
     target.emit(this, X86Register(0x0));
 }
+
+inline void X86Assembler::jmp(int8_t off) {
+    byte(0xeb);
+    byte(off);
+}
+
+inline void X86Assembler::jmp(uint8_t *addr) {
+    byte(0xe9);
+    rel32((uint32_t)addr);
+}
+
+template<class Mem>
+inline void X86Assembler::jmp(Mem target) {
+    byte(0xff);
+    target.emit(this, X86Register(0x4));
+}
+
+inline void X86Assembler::jcc(cc_t cc, int8_t off) {
+    byte(0x70 | cc);
+    byte(off);
+}
+
+inline void X86Assembler::jcc(cc_t cc, uint8_t *addr) {
+    byte(0x0f);
+    byte(0x80 | cc);
+    rel32((uint32_t)addr);
+}
+
 
 
 #endif
