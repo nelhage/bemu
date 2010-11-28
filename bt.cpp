@@ -336,8 +336,8 @@ inline void bt_translate_arith(X86Assembler *buf, byteptr pc UNUSED, bdecode *in
         buf->imul(X86ECX, X86EAX);
         break;
     case OP_DIV:
-        X86_CDQ(buf);
-        X86_IDIV_RM32(buf, MOD_REG, X86_ECX);
+        buf->cdq();
+        buf->idiv(X86ECX);
         break;
     case OP_SHL:
         buf->shl(X86ECX, X86EAX);
@@ -384,10 +384,9 @@ inline void bt_translate_arithc(X86Assembler *buf, byteptr pc UNUSED, bdecode *i
         buf->imul(constant, X86EAX, X86EAX);
         break;
     case OP_DIVC:
-        X86_CDQ(buf);
-        X86_MOV_IMM32_R32(buf, X86_EBX);
-        X86_IMM32(buf, constant);
-        X86_IDIV_RM32(buf, MOD_REG, X86_EBX);
+        buf->cdq();
+        buf->mov(constant, X86EBX);
+        buf->idiv(X86EBX);
         break;
     case OP_ORC:
         buf->or_(constant, X86EAX);
@@ -538,16 +537,14 @@ inline void bt_translate_interp(X86Assembler *buf, byteptr pc) {
 
     buf->mov(X86EBP, X86EAX);
     // Call bt_step_one
-    X86_CALL_REL32(buf);
-    X86_REL32(buf, bt_step_one);
+    buf->call((uint32_t)bt_step_one);
 
     buf->add_(4u, X86ESP);
 
     // Save CPU.PC back into %eax
     buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, PC)), X86EAX);
 
-    X86_CALL_REL32(buf);
-    X86_REL32(buf, bt_continue_chain);
+    buf->call((uint32_t)bt_continue_chain);
 }
 
 inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
@@ -574,8 +571,7 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
                 X86_IMM32(buf, pc + 4);
             }
 
-            X86_CALL_REL32(buf);
-            X86_REL32(buf, bt_continue_chain);
+            buf->call((uint32_t)bt_continue_chain);
         } else {
             /*
              * cmp   $0, regs[RA]
@@ -596,13 +592,9 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
 
             buf->mov(pc + 4, X86EAX);
 
-            X86_CALL_REL32(buf);
-            X86_REL32(buf, bt_continue_chain);
-
+            buf->call((uint32_t)bt_continue_chain);
             buf->mov((pc + 4 + 4*inst->imm) & ~0x03, X86EAX);
-
-            X86_CALL_REL32(buf);
-            X86_REL32(buf, bt_continue_chain);
+            buf->call((uint32_t)bt_continue_chain);
         }
         break;
     case OP_JMP:
@@ -611,8 +603,7 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
 
         buf->and_((pc & PC_SUPERVISOR) | ~(PC_SUPERVISOR|0x3), X86EAX);
 
-        X86_CALL_REL32(buf);
-        X86_REL32(buf, bt_continue_ic);
+        buf->call((uint32_t)bt_continue_ic);
         break;
     case OP_CALLOUT:
         bt_translate_interp(buf, pc);
@@ -624,8 +615,7 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
         buf->mov(pc + 4, bt_register_address(XP));
         buf->mov(ISR_ILLOP, X86EAX);
 
-        X86_CALL_REL32(buf);
-        X86_REL32(buf, bt_continue_chain);
+        buf->call((uint32_t)bt_continue_chain);
     }
 }
 
@@ -665,8 +655,7 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
          */
         buf.mov((uint32_t)pc, X86EAX);
 
-        X86_CALL_REL32(&buf);
-        X86_REL32(&buf, bt_continue_chain);
+        buf.call((uint32_t)bt_continue_chain);
     }
     return buf.eip();
 }

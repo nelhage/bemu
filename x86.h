@@ -228,6 +228,16 @@ public:
 
     template<class Mem>
     void imul(uint32_t lhs, Mem rhs, X86Register dst);
+
+    template<class Mem>
+    void idiv(Mem rhs);
+
+    void cdq();
+
+    void call(uint32_t addr);
+
+    template<class Mem>
+    void call(Mem target);
 };
 
 class X86Register {
@@ -411,5 +421,30 @@ inline void X86Assembler::imul(uint32_t lhs, Mem rhs, X86Register dst)
     rhs.emit(this, dst);
     word(lhs);
 }
+
+template<class Mem>
+void X86Assembler::idiv(Mem rhs)
+{
+    byte(0xf7);
+    rhs.emit(this, X86Register(0x7));
+}
+
+
+inline void X86Assembler::cdq()
+{
+    byte(0x99);
+}
+
+inline void X86Assembler::call(uint32_t addr) {
+    byte(0xe8);
+    rel32(addr);
+}
+
+template<class Mem>
+inline void X86Assembler::call(Mem target) {
+    byte(0xff);
+    target.emit(this, X86Register(0x2));
+}
+
 
 #endif
