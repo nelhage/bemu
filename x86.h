@@ -241,6 +241,8 @@ public:
 
     void jcc(cc_t cc, int8_t off);
     void jcc(cc_t cc, uint8_t *addr);
+
+    template<class Mem> void setcc(cc_t cc, Mem target);
 };
 
 class X86Register {
@@ -482,6 +484,11 @@ inline void X86Assembler::jcc(cc_t cc, uint8_t *addr) {
     rel32((uint32_t)addr);
 }
 
-
+template<class Mem>
+inline void X86Assembler::setcc(cc_t cc, Mem target) {
+    byte(0x0f);
+    byte(0x90 | cc);
+    target.emit(this, X86Register(0x0));
+}
 
 #endif

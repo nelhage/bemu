@@ -357,7 +357,7 @@ inline void bt_translate_arith(X86Assembler *buf, byteptr pc UNUSED, bdecode *in
         uint8_t cc = (inst->opcode == OP_CMPLT ? CC_L
                       : (inst->opcode == OP_CMPLE ? CC_LE
                          : CC_Z));
-        X86_SETCC_RM8(buf, cc, MOD_REG, X86_EAX);
+        buf->setcc(cc, X86EAX);
         break;
     }
     default:
@@ -416,7 +416,7 @@ inline void bt_translate_arithc(X86Assembler *buf, byteptr pc UNUSED, bdecode *i
         uint8_t cc = (inst->opcode == OP_CMPLTC ? CC_L
                       : (inst->opcode == OP_CMPLEC ? CC_LE
                          : CC_Z));
-        X86_SETCC_RM8(buf, cc, MOD_REG, X86_EAX);
+        buf->setcc(cc, X86EAX);
         break;
     }
     default:
