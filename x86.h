@@ -4,28 +4,6 @@
 /* compiled code buffer */
 typedef uint8_t* ccbuff;
 
-#define MODRM(mod, regop, rm) ({                              \
-    uint8_t _mod=(mod), _regop=(regop), _rm=(rm);             \
-    ASSERT(!(_mod   & (~0x3)));                               \
-    ASSERT(!(_regop & (~0x7)));                               \
-    ASSERT(!(_rm    & (~0x7)));                               \
-    (_mod << 6)|(_regop << 3)|(_rm);                          \
-})
-
-/* Cheat because the encoding is the same... */
-#define SIB(scale, index, base) MODRM(scale, index, base)
-
-typedef enum {
-    X86_EAX = 0x00,
-    X86_ECX = 0x01,
-    X86_EDX = 0x02,
-    X86_EBX = 0x03,
-    X86_ESP = 0x04,
-    X86_EBP = 0x05,
-    X86_ESI = 0x06,
-    X86_EDI = 0x07,
-} x86_reg;
-
 #define PREFIX_LOCK     0xF0
 #define PREFIX_REPNZ    0xF2
 #define PREFIX_REPZ     0xF3
@@ -78,42 +56,12 @@ typedef uint8_t cc_t;
  * byte follows (with mod != 3)
  */
 
-#define REG_SIB          X86_ESP
+#define REG_SIB          X86ESP.val
 
 /*
  * With mod = 0, this specifies a 32-bit displacement
  */
-#define REG_DISP32       X86_EBP
-
-#define X86_BYTE(cc, b) (cc)->byte(b)
-
-#define X86_4BYTE(cc, val) (cc)->word(val)
-
-/* For readability */
-#define X86_IMM32  X86_4BYTE
-#define X86_DISP32 X86_4BYTE
-#define X86_IMM8   X86_BYTE
-#define X86_DISP8  X86_BYTE
-#define X86_REL32(cc, label) (cc)->rel32((uint32_t)label)
-
-#define X86_SIB(ptr, scale, index, base) ({     \
-            X86_BYTE(ptr, SIB(scale, index, base));     \
-        })
-
-#define X86_INC_RM32(ptr, mod, rm) ({           \
-    X86_BYTE(ptr, 0xff);                        \
-    X86_BYTE(ptr, MODRM(mod, 0, rm));           \
-        })
-
-/*
- * We use the AT&T convention of SRC_DST.
- * 
- * These macros output only the opcode and a ModR/M byte; It is the
- * caller's responsibility to follow them with SIB, displacement, and
- * immediate value if appropriate.
- */
-
-#include "opcodes.h"
+#define REG_DISP32       X86EBP.val
 
 /* Begin C++ */
 
