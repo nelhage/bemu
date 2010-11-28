@@ -305,9 +305,10 @@ void bt_load_reg(X86Assembler *cc, uint8_t breg, X86Register reg) {
         cc->mov(bt_register_address(breg), reg);
 }
 
-void bt_store_reg(X86Assembler *cc, X86Register reg, uint8_t breg) {
+template <class T>
+void bt_store_reg(X86Assembler *cc, T val, uint8_t breg) {
     if (breg != 31)
-        cc->mov(reg, bt_register_address(breg));
+        cc->mov(val, bt_register_address(breg));
 }
 
 inline void bt_translate_arith(X86Assembler *buf, byteptr pc UNUSED, bdecode *inst) {
@@ -546,11 +547,6 @@ inline void bt_translate_interp(X86Assembler *buf, byteptr pc) {
 }
 
 inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
-#define SAVE_PC                                                 \
-    if(inst->rc != 31) {                                        \
-        buf->mov(pc + 4, bt_register_address(inst->rc));        \
-    }
-
     if(profile_instructions && inst->opcode != OP_CALLOUT)
         buf->inc(X86Mem(X86EBP, offsetof(beta_cpu, opcode_counts) +
                         inst->opcode * sizeof(uint32_t)));
@@ -560,7 +556,7 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
     case OP_BF:
         if(inst->ra == 31) {
             /* Unconditional branch */
-            SAVE_PC;
+            bt_store_reg(buf, pc + 4, inst->rc);
             if (inst->opcode == OP_BF)
                 buf->mov((pc + 4 + 4*inst->imm) & ~0x03, X86EAX);
             else
@@ -580,7 +576,7 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
 
             buf->cmp((uint32_t)0, bt_register_address(inst->ra));
 
-            SAVE_PC;
+            bt_store_reg(buf, pc + 4, inst->rc);
 
             buf->jcc(inst->opcode == OP_BT ? CC_NZ : CC_Z, 10);
             buf->mov(pc + 4, X86EAX);
@@ -590,7 +586,7 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
         }
         break;
     case OP_JMP:
-        SAVE_PC;
+        bt_store_reg(buf, pc + 4, inst->rc);
         bt_load_reg(buf, inst->ra, X86EAX);
 
         buf->and_((pc & PC_SUPERVISOR) | ~(PC_SUPERVISOR|0x3), X86EAX);
