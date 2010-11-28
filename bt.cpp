@@ -564,12 +564,10 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
         if(inst->ra == 31) {
             /* Unconditional branch */
             SAVE_PC;
-            X86_MOV_IMM32_R32(buf, X86_EAX);
-            if (inst->opcode == OP_BF) {
-                X86_IMM32(buf, (pc + 4 + 4*inst->imm) & ~0x03);
-            } else {
-                X86_IMM32(buf, pc + 4);
-            }
+            if (inst->opcode == OP_BF)
+                buf->mov((pc + 4 + 4*inst->imm) & ~0x03, X86EAX);
+            else
+                buf->mov(pc + 4, X86EAX);
 
             buf->call((uint32_t)bt_continue_chain);
         } else {
