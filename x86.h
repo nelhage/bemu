@@ -222,6 +222,12 @@ public:
     SHIFT(shl, SHL);
     SHIFT(shr, SHR);
     SHIFT(sar, SAR);
+
+    template<class Mem>
+    void imul(Mem lhs, X86Register rhs);
+
+    template<class Mem>
+    void imul(uint32_t lhs, Mem rhs, X86Register dst);
 };
 
 class X86Register {
@@ -389,6 +395,21 @@ inline void X86ShiftEmitter<Inst>::emit(X86Assembler *cc, uint8_t lhs, Mem rhs) 
     cc->byte(Inst::op_imm::val);
     rhs.emit(cc, X86Register(Inst::subop_imm::val));
     cc->byte(lhs);
+}
+
+template <class Mem>
+inline void X86Assembler::imul(Mem lhs, X86Register rhs)
+{
+    byte(0x0f); byte(0xaf);
+    lhs.emit(this, rhs);
+}
+
+template <class Mem>
+inline void X86Assembler::imul(uint32_t lhs, Mem rhs, X86Register dst)
+{
+    byte(0x69);
+    rhs.emit(this, dst);
+    word(lhs);
 }
 
 #endif

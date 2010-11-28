@@ -333,7 +333,7 @@ inline void bt_translate_arith(X86Assembler *buf, byteptr pc UNUSED, bdecode *in
         buf->xor_(X86ECX, X86EAX);
         break;
     case OP_MUL:
-        X86_IMUL_RM32_R32(buf, MOD_REG, X86_ECX, X86_EAX);
+        buf->imul(X86ECX, X86EAX);
         break;
     case OP_DIV:
         X86_CDQ(buf);
@@ -381,8 +381,7 @@ inline void bt_translate_arithc(X86Assembler *buf, byteptr pc UNUSED, bdecode *i
         buf->and_(constant, X86EAX);
         break;
     case OP_MULC:
-        X86_IMUL_IMM32_RM32_R32(buf, MOD_REG, X86_EAX, X86_EAX);
-        X86_IMM32(buf, constant);
+        buf->imul(constant, X86EAX, X86EAX);
         break;
     case OP_DIVC:
         X86_CDQ(buf);
