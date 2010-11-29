@@ -410,7 +410,6 @@ inline void bt_translate_arithc(X86Assembler *buf, byteptr pc UNUSED, bdecode *i
     case OP_CMPLTC:
     case OP_CMPEQC:
     case OP_CMPLEC: {
-        /* cmp $IMM32, %eax */
         buf->cmp(constant, X86EAX);
         buf->mov(0u, X86EAX);
 
@@ -423,19 +422,12 @@ inline void bt_translate_arithc(X86Assembler *buf, byteptr pc UNUSED, bdecode *i
     default:
         panic("Unknown constant arithmetic opcode: 0x%02x\n", inst->opcode);
     }
-    /* Load %eax into RC */
     bt_store_reg(buf, X86EAX, inst->rc);
 }
 
 inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
     switch(inst->opcode) {
     case OP_ST:
-        /* mov regs[RA], %eax
-         * add IMM, %eax
-         * mov regs[RC], %ecx
-         * and $7FFFFFFC, %eax
-         * mov %ecx, mem[%eax]
-         */
         bt_load_reg(buf, inst->ra, X86EAX);
 
         if(inst->imm) {
@@ -452,12 +444,6 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
 
         break;
     case OP_LD:
-        /* mov regs[RA], %eax
-         * add IMM, %eax
-         * and $7FFFFFFC, %eax
-         * mov mem[%eax], eax
-         * mov $eax, regs[RC]
-         */
         bt_load_reg(buf, inst->ra, X86EAX);
 
         if(inst->imm)
@@ -531,18 +517,13 @@ inline void bt_translate_interp(X86Assembler *buf, byteptr pc) {
     // Align %esp on a 16-byte boundary to placate OS X
     buf->sub_(4u, X86ESP);
 
-    // Save the PC into CPU.PC
     buf->mov(pc, X86Mem(X86EBP, offsetof(beta_cpu, PC)));
-
     buf->mov(X86EBP, X86EAX);
-    // Call bt_step_one
     buf->call((uint32_t)bt_step_one);
 
     buf->add_(4u, X86ESP);
 
-    // Save CPU.PC back into %eax
     buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, PC)), X86EAX);
-
     buf->call((uint32_t)bt_continue_chain);
 }
 
