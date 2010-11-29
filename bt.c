@@ -807,6 +807,6 @@ void bt_translate_and_run(beta_cpu *cpu, uint32_t exact, ccbuff chainptr) {
         LOG("Chaining to frag 0x%08x", cfrag->start_pc);
     }
 
-    __asm__("movw %%ax, %%fs\n" :: "a"(cpu->segment<<3|0x4));
+    __asm__("movw %%ax, %%fs\n" :: "a"(cpu->segment<<3|0x7));
     bt_enter(cfrag->code);
 }
