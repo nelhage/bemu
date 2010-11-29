@@ -564,23 +564,14 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
 
             buf->call((uint32_t)bt_continue_chain);
         } else {
-            /*
-             * cmp   $0, regs[RA]
-             * mov   $(pc+4), regs[RC]
-             * j[n]z .+10
-             * mov   $(pc+4), %eax          ; 5 bytes
-             * call  bt_continue_chain      ; 5 bytes
-             * mov   $(branch pc), CPU.PC
-             * call  bt_continue_chain
-             */
+            X86Label8 l;
 
             buf->cmp((uint32_t)0, bt_register_address(inst->ra));
-
             bt_store_reg(buf, pc + 4, inst->rc);
-
-            buf->jcc(inst->opcode == OP_BT ? CC_NZ : CC_Z, 10);
+            buf->jcc(inst->opcode == OP_BT ? CC_NZ : CC_Z, l);
             buf->mov(pc + 4, X86EAX);
             buf->call((uint32_t)bt_continue_chain);
+            buf->bind(&l);
             buf->mov((pc + 4 + 4*inst->imm) & ~0x03, X86EAX);
             buf->call((uint32_t)bt_continue_chain);
         }

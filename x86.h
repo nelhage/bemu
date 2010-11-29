@@ -78,6 +78,7 @@ struct no_opcode  {
 
 class X86Assembler;
 class X86Register;
+class X86Label8;
 
 template<class Inst>
 class X86Emitter {
@@ -184,13 +185,41 @@ public:
     template<class Mem> void inc(Mem target);
 
     void jmp(int8_t off);
+    void jmp(X86Label8 &l);
     void jmp(uint8_t *addr);
     template<class Mem> void jmp(Mem target);
 
     void jcc(cc_t cc, int8_t off);
     void jcc(cc_t cc, uint8_t *addr);
+    void jcc(cc_t cc, X86Label8 &l);
 
     template<class Mem> void setcc(cc_t cc, Mem target);
+
+    void bind(X86Label8 *l);
+};
+
+class X86Label8 {
+    enum {
+        NEW,
+        REFERENCED,
+        BOUND
+    } state;
+    uint8_t *reference;
+    int8_t addend;
+public:
+    X86Label8() : state(NEW) {};
+    void referenced(uint8_t *addr, int8_t addend) {
+        ASSERT(state == NEW);
+        state = REFERENCED;
+        reference = addr;
+        this->addend = addend;
+    }
+
+    void bind(uint8_t *addr) {
+        ASSERT(state == REFERENCED);
+        state = BOUND;
+        *reference = addr - reference + addend;
+    }
 };
 
 class X86Register {
@@ -410,6 +439,11 @@ inline void X86Assembler::jmp(int8_t off) {
     byte(off);
 }
 
+inline void X86Assembler::jmp(X86Label8 &label) {
+    jmp((int8_t)0);
+    label.referenced(eip() - 1, -1);
+}
+
 inline void X86Assembler::jmp(uint8_t *addr) {
     byte(0xe9);
     rel32((uint32_t)addr);
@@ -432,11 +466,20 @@ inline void X86Assembler::jcc(cc_t cc, uint8_t *addr) {
     rel32((uint32_t)addr);
 }
 
+inline void X86Assembler::jcc(cc_t cc, X86Label8 &label) {
+    jcc(cc, (int8_t)0);
+    label.referenced(eip() - 1, -1);
+}
+
 template<class Mem>
 inline void X86Assembler::setcc(cc_t cc, Mem target) {
     byte(0x0f);
     byte(0x90 | cc);
     target.emit(this, X86Register(0x0));
+}
+
+inline void X86Assembler::bind(X86Label8 *label) {
+    label->bind(eip());
 }
 
 #endif
