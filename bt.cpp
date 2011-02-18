@@ -354,7 +354,7 @@ inline void bt_translate_arith(X86Assembler *buf, byteptr pc UNUSED, bdecode *in
     case OP_CMPLE: {
         /* cmp %ecx, %eax */
         buf->cmp(X86ECX, X86EAX);
-        buf->mov(0x00u, X86EAX);
+        buf->mov(0x00, X86EAX);
         uint8_t cc = (inst->opcode == OP_CMPLT ? CC_L
                       : (inst->opcode == OP_CMPLE ? CC_LE
                          : CC_Z));
@@ -431,12 +431,12 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
         bt_load_reg(buf, inst->ra, X86EAX);
 
         if(inst->imm) {
-            buf->add_((uint32_t)inst->imm, X86EAX);
+            buf->add_(inst->imm, X86EAX);
         }
 
         bt_load_reg(buf, inst->rc, X86ECX);
 
-        buf->and_((uint32_t)~(PC_SUPERVISOR | 0x3), X86EAX);
+        buf->and_(~(PC_SUPERVISOR | 0x3), X86EAX);
 
         bt_save_fault_entry(buf, pc);
         buf->byte(PREFIX_SEG_FS);
@@ -447,9 +447,9 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
         bt_load_reg(buf, inst->ra, X86EAX);
 
         if(inst->imm)
-            buf->add_((uint32_t)inst->imm, X86EAX);
+            buf->add_(inst->imm, X86EAX);
 
-        buf->and_((uint32_t)~(PC_SUPERVISOR | 0x3), X86EAX);
+        buf->and_(~(PC_SUPERVISOR | 0x3), X86EAX);
 
         bt_save_fault_entry(buf, pc);
         buf->byte(PREFIX_SEG_FS);
@@ -491,11 +491,11 @@ inline void bt_translate_inst(X86Assembler *pbuf, byteptr pc, bdecode *inst) {
  * interrupts and jump out to `bt_interrupt' to handle them if so.
  */
 inline void bt_translate_prologue(X86Assembler *buf, byteptr pc) {
-    buf->cmp((uint32_t)pc, X86EAX);
+    buf->cmp(pc, X86EAX);
     buf->jcc(CC_NZ, (uint8_t*)bt_continue);
 
     if(!(pc & PC_SUPERVISOR)) {
-        buf->test((uint32_t)-1,
+        buf->test(-1,
                   X86Mem(X86EBP, offsetof(beta_cpu, pending_interrupts)));
         buf->jcc(CC_NZ, (uint8_t*)bt_interrupt);
     }
@@ -547,7 +547,7 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
         } else {
             X86Label8 l;
 
-            buf->cmp((uint32_t)0, bt_register_address(inst->ra));
+            buf->cmp(0, bt_register_address(inst->ra));
             bt_store_reg(buf, pc + 4, inst->rc);
             buf->jcc(inst->opcode == OP_BT ? CC_NZ : CC_Z, l);
             buf->mov(pc + 4, X86EAX);
@@ -602,7 +602,7 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
 
     /* Update CPU.inst_count */
 
-    buf.add_((uint32_t)(frag->ninsts + (frag->tail ? 1 : 0)),
+    buf.add_(frag->ninsts + (frag->tail ? 1 : 0),
              X86Mem(X86EBP, offsetof(beta_cpu, inst_count)));
 
     if(frag->tail) {
@@ -611,7 +611,7 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
         /*
          * default epilogue -- save emulated PC and jump to bt_continue_chain
          */
-        buf.mov((uint32_t)pc, X86EAX);
+        buf.mov(pc, X86EAX);
 
         buf.call((uint32_t)bt_continue_chain);
     }

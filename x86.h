@@ -80,10 +80,22 @@ class X86Assembler;
 class X86Register;
 class X86Label8;
 
+#define FOR_EACH_INT_TYPE(X) \
+    X(signed short)          \
+    X(unsigned short)        \
+    X(signed int)            \
+    X(unsigned int)          \
+    X(signed long)           \
+    X(unsigned long)
+
 template<class Inst>
 class X86Emitter {
+ private:
+    static void emit_(X86Assembler *cc, uint32_t lhs, X86Register rhs);
  public:
-    static void emit(X86Assembler *cc, uint32_t lhs, X86Register rhs);
+#define D(int_type) static void emit(X86Assembler *cc, int_type lhs, X86Register rhs);
+    FOR_EACH_INT_TYPE(D)
+#undef D
     static void emit_imm(X86Assembler *cc, X86Register rhs, none);
     static void emit_imm(X86Assembler *cc, X86Register rhs, uint8_t);
 
@@ -314,10 +326,19 @@ static inline X86ReferenceSIB X86Mem(uint32_t off, X86Register base, X86Register
 }
 
 template<class Inst>
-inline void X86Emitter<Inst>::emit(X86Assembler *cc, uint32_t lhs, X86Register rhs) {
+inline void X86Emitter<Inst>::emit_(X86Assembler *cc, uint32_t lhs, X86Register rhs) {
     emit_imm(cc, rhs, Inst::op_imm_r::val);
     cc->word(lhs);
 }
+
+#define D(int_type)                                                     \
+    template<class Inst>                                                \
+    inline void X86Emitter<Inst>::emit(X86Assembler *cc, int_type lhs,  \
+                                       X86Register rhs) {               \
+        emit_(cc, (uint32_t)lhs, rhs);                                   \
+    }
+FOR_EACH_INT_TYPE(D)
+#undef D
 
 template<class Inst>
 inline void X86Emitter<Inst>::emit_imm(X86Assembler *cc, X86Register rhs, none) {
