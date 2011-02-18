@@ -70,6 +70,12 @@ struct has_opcode {
     const static uint8_t val = opcode;
 };
 struct none {};
+struct true_type {
+    const static bool val = true;
+};
+struct false_type {
+    const static bool val = true;
+};
 struct no_opcode  {
     const static none val;
 };
@@ -190,7 +196,7 @@ public:
     template<class Mem> void imul(uint32_t lhs, Mem rhs, X86Register dst);
     template<class Mem> void idiv(Mem rhs);
     void cdq();
-    
+
     void call(uint32_t addr);
     template<class Mem> void call(Mem target);
 
@@ -208,6 +214,10 @@ public:
     template<class Mem> void setcc(cc_t cc, Mem target);
 
     void bind(X86Label8 *l);
+
+ private:
+    template<class Mem> void call(Mem target, true_type);
+    template<class Mem> void call(Mem target, false_type);
 };
 
 class X86Label8 {
@@ -234,6 +244,9 @@ public:
     }
 };
 
+template <class T>
+struct is_modrm { const static false_type val; };
+
 class X86Register {
 public:
     int val;
@@ -251,6 +264,7 @@ R(ESP, 0x04);
 R(EBP, 0x05);
 R(ESI, 0x06);
 R(EDI, 0x07);
+template<> struct is_modrm<X86Register> { const static true_type val; };
 
 struct X86ReferenceIndirect {
     X86Register base;
@@ -260,6 +274,8 @@ struct X86ReferenceIndirect {
         cc->modrm(MOD_INDIR, reg.val, base.val);
     }
 };
+template<> struct is_modrm<X86ReferenceIndirect> { const static true_type val; };
+
 struct X86ReferenceIndirect32 {
     X86Register base;
     uint32_t offset;
@@ -269,6 +285,8 @@ struct X86ReferenceIndirect32 {
         cc->word(offset);
     }
 };
+template<> struct is_modrm<X86ReferenceIndirect32> { const static true_type val; };
+
 struct X86ReferenceIndirect8 {
     X86Register base;
     uint8_t offset;
@@ -278,6 +296,8 @@ struct X86ReferenceIndirect8 {
         cc->byte(offset);
     }
 };
+template<> struct is_modrm<X86ReferenceIndirect8> { const static true_type val; };
+
 struct X86ReferenceAbs {
     uint32_t address;
     void emit(X86Assembler *cc, X86Register reg) {
@@ -285,6 +305,8 @@ struct X86ReferenceAbs {
         cc->word(address);
     }
 };
+template<> struct is_modrm<X86ReferenceAbs> { const static true_type val; };
+
 struct X86ReferenceSIB {
     uint32_t offset;
     X86Register base, index;
@@ -303,6 +325,7 @@ struct X86ReferenceSIB {
         cc->word(offset);
     }
 };
+template<> struct is_modrm<X86ReferenceSIB> { const static true_type val; };
 
 static inline X86ReferenceIndirect X86Mem(X86Register reg) {
     X86ReferenceIndirect r = {reg};
@@ -445,8 +468,18 @@ inline void X86Assembler::call(uint32_t addr) {
 
 template<class Mem>
 inline void X86Assembler::call(Mem target) {
+    call(target, is_modrm<Mem>::val);
+}
+
+template<class Mem>
+inline void X86Assembler::call(Mem target, true_type) {
     byte(0xff);
     target.emit(this, X86Register(0x2));
+}
+
+template<class Mem>
+inline void X86Assembler::call(Mem target, false_type) {
+    call((uint32_t)target);
 }
 
 template<class Mem>

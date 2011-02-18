@@ -519,12 +519,12 @@ inline void bt_translate_interp(X86Assembler *buf, byteptr pc) {
 
     buf->mov(pc, X86Mem(X86EBP, offsetof(beta_cpu, PC)));
     buf->mov(X86EBP, X86EAX);
-    buf->call((uint32_t)bt_step_one);
+    buf->call(bt_step_one);
 
     buf->add_(4u, X86ESP);
 
     buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, PC)), X86EAX);
-    buf->call((uint32_t)bt_continue_chain);
+    buf->call(bt_continue_chain);
 }
 
 inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
@@ -543,7 +543,7 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
             else
                 buf->mov(pc + 4, X86EAX);
 
-            buf->call((uint32_t)bt_continue_chain);
+            buf->call(bt_continue_chain);
         } else {
             X86Label8 l;
 
@@ -551,10 +551,10 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
             bt_store_reg(buf, pc + 4, inst->rc);
             buf->jcc(inst->opcode == OP_BT ? CC_NZ : CC_Z, l);
             buf->mov(pc + 4, X86EAX);
-            buf->call((uint32_t)bt_continue_chain);
+            buf->call(bt_continue_chain);
             buf->bind(&l);
             buf->mov((pc + 4 + 4*inst->imm) & ~0x03, X86EAX);
-            buf->call((uint32_t)bt_continue_chain);
+            buf->call(bt_continue_chain);
         }
         break;
     case OP_JMP:
@@ -563,7 +563,7 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
 
         buf->and_((pc & PC_SUPERVISOR) | ~(PC_SUPERVISOR|0x3), X86EAX);
 
-        buf->call((uint32_t)bt_continue_ic);
+        buf->call(bt_continue_ic);
         break;
     case OP_CALLOUT:
         bt_translate_interp(buf, pc);
@@ -575,7 +575,7 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
         buf->mov(pc + 4, bt_register_address(XP));
         buf->mov(ISR_ILLOP, X86EAX);
 
-        buf->call((uint32_t)bt_continue_chain);
+        buf->call(bt_continue_chain);
     }
 }
 
@@ -613,7 +613,7 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
          */
         buf.mov(pc, X86EAX);
 
-        buf.call((uint32_t)bt_continue_chain);
+        buf.call(bt_continue_chain);
     }
     return buf.eip();
 }
