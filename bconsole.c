@@ -11,7 +11,6 @@ static pthread_mutex_t console_mutex;
 static pthread_t console_thread;
 
 static struct termios saved_termios;
-static int saved_flags;
 static int kbd_char;
 extern beta_cpu CPU;
 
@@ -48,7 +47,7 @@ void* console_process(void *arg UNUSED) {
 void console_open(bool interrupt) {
     LOG("console_open(%d)", interrupt);
     struct termios termios;
-    int flags;
+
     /* Disable echo */
     if(tcgetattr(0, &saved_termios) == 0) {
         termios = saved_termios;
@@ -59,10 +58,6 @@ void console_open(bool interrupt) {
     }
 
     signal(SIGIO, SIG_IGN);
-
-    saved_flags = fcntl(0, F_GETFL);
-    flags = saved_flags|O_ASYNC;
-    fcntl(0, F_SETFL, flags);
 
     atexit(console_close);
 
@@ -85,7 +80,6 @@ void console_open(bool interrupt) {
 
 void console_close() {
     tcsetattr(0, TCSANOW, &saved_termios);
-    fcntl(0, F_SETFL, saved_flags);
 }
 
 void beta_wrchr(int chr) {
