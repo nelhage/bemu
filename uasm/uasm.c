@@ -77,7 +77,7 @@ struct symbol {
 #define	SMACRO	3	/* symbol is name of a macro */
 
 struct symbol Dot = { NULL, ".", 0, SASSIGN, -1 };	/* the symbol "." */
-int MaxDotValue = 8192;  /* no smaller than 8Kbytes: default for ROMS */
+int MaxDotValue = 8191;  /* no smaller than 8Kbytes: default for ROMS */
 
 /* skip to next non-spacing character */
 #define skipb(p) while (cinfo[*p] & SPC) p += 1
@@ -1050,7 +1050,7 @@ main(argc,argv)
 	  exit(-1);
 	} else {
             write(romfd, rom, romsize);
-            ftruncate(romfd, MaxDotValue);
+            ftruncate(romfd, (MaxDotValue+3)&~3);
             close(romfd);
         }
 
