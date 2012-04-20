@@ -1,5 +1,8 @@
 .text
 
+#define SP 29
+#define BP 27
+
 #ifdef __APPLE__
 #define _(x) _##x
 #else
@@ -12,8 +15,14 @@
 .globl _(bt_enter)
 .globl _(bt_interrupt)
 
-_(bt_interrupt):
+.macro SYNC_CPU
         mov %eax, 128(%ebp)
+        mov %ebx, (4*SP)(%ebp)
+        mov %edx, (4*BP)(%ebp)
+.endm
+
+_(bt_interrupt):
+        SYNC_CPU
         mov _(bt_stack_base), %esp
         movl %ebp, %eax
         call _(bt_process_interrupt)
@@ -42,14 +51,14 @@ _(bt_continue):
 miss:
         pushl $0
 _(bt_continue_chain):
-        mov %eax, 128(%ebp)
+        SYNC_CPU
         popl %ecx
         movl $1, %edx
         movl %ebp, %eax
         call _(bt_translate_and_run)
 
 _(bt_continue_ic):
-        mov %eax, 128(%ebp)
+        SYNC_CPU
         popl %ecx
         xorl %edx, %edx
         movl %ebp, %eax
@@ -61,4 +70,6 @@ _(bt_enter):
         subl $8, %esp
         mov $_(CPU), %ebp
         mov 128(%ebp), %eax
+        mov (4*SP)(%ebp), %ebx
+        mov (4*BP)(%ebp), %edx
         jmp *%ecx

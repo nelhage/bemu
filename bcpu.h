@@ -28,6 +28,8 @@ typedef uint32_t byteptr;
 typedef uint32_t wordptr;
 
 #define XP 30
+#define SP 29
+#define BP 27
 
 class beta_cpu {
  public:

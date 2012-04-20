@@ -245,8 +245,12 @@ void bt_setup_segv_handler() {
  * \Beta's registers with memory. At frag entry and exit (but *not*
  * during frag execution), %eax holds the emulated program counter;
  * `bt_enter' and `bt_continue' in bt_helper.S are responsible for
- * loading/restoring CPU.PC. Other than that, no registers are
- * special-purposed at the moment.
+ * loading/restoring CPU.PC.
+ *
+ * We perform a minimal hard-coded register allocation: During frag
+ * execution, %ebx is used to store SP, and %edx is used to store
+ * BP. This trivial optimization is nonetheless good for a significant
+ * speedup on many stack-heavy test cases.
  *
  * Chaining
  * --------
@@ -301,15 +305,35 @@ static X86ReferenceIndirect8 bt_register_address(uint8_t reg) {
 void bt_load_reg(X86Assembler *cc, uint8_t breg, X86Register reg) {
     if (breg == 31)
         cc->xor_(reg, reg);
+    else if (breg == SP)
+        cc->mov(X86EBX, reg);
+    else if (breg == BP)
+        cc->mov(X86EDX, reg);
     else
         cc->mov(bt_register_address(breg), reg);
 }
 
 template <class T>
 void bt_store_reg(X86Assembler *cc, T val, uint8_t breg) {
-    if (breg != 31)
+    if (breg == SP)
+        cc->mov(val, X86EBX);
+    else if (breg == BP)
+        cc->mov(val, X86EDX);
+    else if (breg != 31)
         cc->mov(val, bt_register_address(breg));
 }
+
+class beta_protect_edx {
+public:
+    beta_protect_edx(X86Assembler *buf) : buf_(buf) {
+        buf_->mov(X86EDX, bt_register_address(BP));
+    }
+    ~beta_protect_edx() {
+        buf_->mov(bt_register_address(BP), X86EDX);
+    }
+protected:
+    X86Assembler *buf_;
+};
 
 inline void bt_translate_arith(X86Assembler *buf, byteptr pc UNUSED, bdecode *inst) {
     /* Load %eax with RA, the LHS */
@@ -337,8 +361,11 @@ inline void bt_translate_arith(X86Assembler *buf, byteptr pc UNUSED, bdecode *in
         buf->imul(X86ECX, X86EAX);
         break;
     case OP_DIV:
-        buf->cdq();
-        buf->idiv(X86ECX);
+        {
+            beta_protect_edx edx(buf);
+            buf->cdq();
+            buf->idiv(X86ECX);
+        }
         break;
     case OP_SHL:
         buf->shl(X86ECX, X86EAX);
@@ -385,9 +412,12 @@ inline void bt_translate_arithc(X86Assembler *buf, byteptr pc UNUSED, bdecode *i
         buf->imul(constant, X86EAX, X86EAX);
         break;
     case OP_DIVC:
-        buf->cdq();
-        buf->mov(constant, X86EBX);
-        buf->idiv(X86EBX);
+        {
+            beta_protect_edx edx(buf);
+            buf->cdq();
+            buf->mov(constant, X86ECX);
+            buf->idiv(X86ECX);
+        }
         break;
     case OP_ORC:
         buf->or_(constant, X86EAX);
@@ -517,13 +547,18 @@ inline void bt_translate_interp(X86Assembler *buf, byteptr pc) {
     // Align %esp on a 16-byte boundary to placate OS X
     buf->sub_(4u, X86ESP);
 
-    buf->mov(pc, X86Mem(X86EBP, offsetof(beta_cpu, PC)));
+    buf->mov(pc,     X86Mem(X86EBP, offsetof(beta_cpu, PC)));
+    buf->mov(X86EBX, X86Mem(X86EBP, offsetof(beta_cpu, regs[SP])));
+    buf->mov(X86EDX, X86Mem(X86EBP, offsetof(beta_cpu, regs[BP])));
+
     buf->mov(X86EBP, X86EAX);
     buf->call(bt_step_one);
 
     buf->add_(4u, X86ESP);
 
-    buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, PC)), X86EAX);
+    buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, PC)),       X86EAX);
+    buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, regs[SP])), X86EBX);
+    buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, regs[BP])), X86EDX);
     buf->call(bt_continue_chain);
 }
 
