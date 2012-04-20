@@ -19,6 +19,7 @@
         mov %eax, 128(%ebp)
         mov %ebx, (4*SP)(%ebp)
         mov %edx, (4*BP)(%ebp)
+        mov %esi, (4*0)(%ebp)
 .endm
 
 _(bt_interrupt):
@@ -72,4 +73,5 @@ _(bt_enter):
         mov 128(%ebp), %eax
         mov (4*SP)(%ebp), %ebx
         mov (4*BP)(%ebp), %edx
+        mov (4*0)(%ebp),  %esi
         jmp *%ecx

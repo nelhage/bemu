@@ -248,9 +248,11 @@ void bt_setup_segv_handler() {
  * loading/restoring CPU.PC.
  *
  * We perform a minimal hard-coded register allocation: During frag
- * execution, %ebx is used to store SP, and %edx is used to store
- * BP. This trivial optimization is nonetheless good for a significant
- * speedup on many stack-heavy test cases.
+ * execution, %esi holds R0, %ebx holds SP, and %edx is used to store
+ * BP. These are swapped to and from CPU->regs[] on frag entry and
+ * exit, as well as when calling out to the interpreter.  This trivial
+ * optimization is nonetheless good for a significant speedup on some
+ * stack-heavy test cases.
  *
  * Chaining
  * --------
@@ -305,6 +307,8 @@ static X86ReferenceIndirect8 bt_register_address(uint8_t reg) {
 void bt_load_reg(X86Assembler *cc, uint8_t breg, X86Register reg) {
     if (breg == 31)
         cc->xor_(reg, reg);
+    else if (breg == 0)
+        cc->mov(X86ESI, reg);
     else if (breg == SP)
         cc->mov(X86EBX, reg);
     else if (breg == BP)
@@ -315,7 +319,9 @@ void bt_load_reg(X86Assembler *cc, uint8_t breg, X86Register reg) {
 
 template <class T>
 void bt_store_reg(X86Assembler *cc, T val, uint8_t breg) {
-    if (breg == SP)
+    if (breg == 0)
+        cc->mov(val, X86ESI);
+    else if (breg == SP)
         cc->mov(val, X86EBX);
     else if (breg == BP)
         cc->mov(val, X86EDX);
@@ -550,6 +556,7 @@ inline void bt_translate_interp(X86Assembler *buf, byteptr pc) {
     buf->mov(pc,     X86Mem(X86EBP, offsetof(beta_cpu, PC)));
     buf->mov(X86EBX, X86Mem(X86EBP, offsetof(beta_cpu, regs[SP])));
     buf->mov(X86EDX, X86Mem(X86EBP, offsetof(beta_cpu, regs[BP])));
+    buf->mov(X86ESI, X86Mem(X86EBP, offsetof(beta_cpu, regs[0])));
 
     buf->mov(X86EBP, X86EAX);
     buf->call(bt_step_one);
@@ -559,6 +566,7 @@ inline void bt_translate_interp(X86Assembler *buf, byteptr pc) {
     buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, PC)),       X86EAX);
     buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, regs[SP])), X86EBX);
     buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, regs[BP])), X86EDX);
+    buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, regs[0])),  X86ESI);
     buf->call(bt_continue_chain);
 }
 
@@ -582,7 +590,8 @@ inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
         } else {
             X86Label8 l;
 
-            buf->cmp(0, bt_register_address(inst->ra));
+            bt_load_reg(buf, inst->ra, X86EAX);
+            buf->test(X86EAX, X86EAX);
             bt_store_reg(buf, pc + 4, inst->rc);
             buf->jcc(inst->opcode == OP_BT ? CC_NZ : CC_Z, l);
             buf->mov(pc + 4, X86EAX);
