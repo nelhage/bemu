@@ -39,6 +39,7 @@ compiled_frag *bt_frag_hash[256];
 
 /* bt_helper.S */
 extern "C" void bt_enter(ccbuff buf) __attribute__((noreturn));
+extern "C" void bt_interp_one(void);
 extern "C" void bt_continue(void);
 extern "C" void bt_continue_chain(void);
 extern "C" void bt_continue_ic(void);
@@ -538,8 +539,8 @@ inline void bt_translate_prologue(X86Assembler *buf, byteptr pc) {
 }
 
 extern "C" {
-    static void bt_step_one(beta_cpu *cpu) __attribute__((used, regparm(1)));
-    static void bt_step_one(beta_cpu *cpu) {
+    void bt_step_one(beta_cpu *cpu) __attribute__((used, regparm(1)));
+    void bt_step_one(beta_cpu *cpu) {
         cpu->step_one();
     }
 
@@ -550,23 +551,8 @@ extern "C" {
 };
 
 inline void bt_translate_interp(X86Assembler *buf, byteptr pc) {
-    // Align %esp on a 16-byte boundary to placate OS X
-    buf->sub_(4u, X86ESP);
-
     buf->mov(pc,     X86Mem(X86EBP, offsetof(beta_cpu, PC)));
-    buf->mov(X86EBX, X86Mem(X86EBP, offsetof(beta_cpu, regs[SP])));
-    buf->mov(X86EDX, X86Mem(X86EBP, offsetof(beta_cpu, regs[BP])));
-    buf->mov(X86ESI, X86Mem(X86EBP, offsetof(beta_cpu, regs[0])));
-
-    buf->mov(X86EBP, X86EAX);
-    buf->call(bt_step_one);
-
-    buf->add_(4u, X86ESP);
-
-    buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, PC)),       X86EAX);
-    buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, regs[SP])), X86EBX);
-    buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, regs[BP])), X86EDX);
-    buf->mov(X86Mem(X86EBP, offsetof(beta_cpu, regs[0])),  X86ESI);
+    buf->call(bt_interp_one);
     buf->call(bt_continue_chain);
 }
 

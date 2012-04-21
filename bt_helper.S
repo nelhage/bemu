@@ -9,21 +9,42 @@
 #define _(x) x
 #endif
 
+.globl _(bt_interp_one)
 .globl _(bt_continue)
 .globl _(bt_continue_chain)
 .globl _(bt_continue_ic)
 .globl _(bt_enter)
 .globl _(bt_interrupt)
 
-.macro SYNC_CPU
+.macro LOAD_CPU pc=1
+.if \pc
+        mov 128(%ebp), %eax
+.endif
+        mov (4*SP)(%ebp), %ebx
+        mov (4*BP)(%ebp), %edx
+        mov (4*0)(%ebp),  %esi
+.endm
+
+.macro SAVE_CPU pc=1
+.if \pc
         mov %eax, 128(%ebp)
+.endif
         mov %ebx, (4*SP)(%ebp)
         mov %edx, (4*BP)(%ebp)
         mov %esi, (4*0)(%ebp)
 .endm
 
+_(bt_interp_one):
+        SAVE_CPU 0
+        subl $4, %esp
+        movl %ebp, %eax
+        call _(bt_step_one)
+        addl $4, %esp
+        LOAD_CPU
+        ret
+
 _(bt_interrupt):
-        SYNC_CPU
+        SAVE_CPU
         mov _(bt_stack_base), %esp
         movl %ebp, %eax
         call _(bt_process_interrupt)
@@ -52,14 +73,14 @@ _(bt_continue):
 miss:
         pushl $0
 _(bt_continue_chain):
-        SYNC_CPU
+        SAVE_CPU
         popl %ecx
         movl $1, %edx
         movl %ebp, %eax
         call _(bt_translate_and_run)
 
 _(bt_continue_ic):
-        SYNC_CPU
+        SAVE_CPU
         popl %ecx
         xorl %edx, %edx
         movl %ebp, %eax
@@ -70,8 +91,5 @@ _(bt_enter):
         mov _(bt_stack_base), %esp
         subl $8, %esp
         mov $_(CPU), %ebp
-        mov 128(%ebp), %eax
-        mov (4*SP)(%ebp), %ebx
-        mov (4*BP)(%ebp), %edx
-        mov (4*0)(%ebp),  %esi
+        LOAD_CPU
         jmp *%ecx
