@@ -306,28 +306,26 @@ static X86ReferenceIndirect8 bt_register_address(uint8_t reg) {
 }
 
 void bt_load_reg(X86Assembler *cc, uint8_t breg, X86Register reg) {
-    if (breg == 31)
-        cc->xor_(reg, reg);
-    else if (breg == 0)
-        cc->mov(X86ESI, reg);
-    else if (breg == SP)
-        cc->mov(X86EBX, reg);
-    else if (breg == BP)
-        cc->mov(X86EDX, reg);
-    else
-        cc->mov(bt_register_address(breg), reg);
+    switch (breg) {
+    case 31: cc->xor_(reg, reg);   break;
+    case 0:  cc->mov(X86ESI, reg); break;
+    case 1:  cc->mov(X86EDI, reg); break;
+    case SP: cc->mov(X86EBX, reg); break;
+    case BP: cc->mov(X86EDX, reg); break;
+    default: cc->mov(bt_register_address(breg), reg);
+    }
 }
 
 template <class T>
 void bt_store_reg(X86Assembler *cc, T val, uint8_t breg) {
-    if (breg == 0)
-        cc->mov(val, X86ESI);
-    else if (breg == SP)
-        cc->mov(val, X86EBX);
-    else if (breg == BP)
-        cc->mov(val, X86EDX);
-    else if (breg != 31)
-        cc->mov(val, bt_register_address(breg));
+    switch (breg) {
+    case 31: break;
+    case 0:  cc->mov(val, X86ESI); break;
+    case 1:  cc->mov(val, X86EDI); break;
+    case SP: cc->mov(val, X86EBX); break;
+    case BP: cc->mov(val, X86EDX); break;
+    default: cc->mov(val, bt_register_address(breg));
+    }
 }
 
 class beta_protect_edx {

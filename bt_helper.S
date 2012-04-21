@@ -23,6 +23,7 @@
         mov (4*SP)(%ebp), %ebx
         mov (4*BP)(%ebp), %edx
         mov (4*0)(%ebp),  %esi
+        mov (4*1)(%ebp),  %edi
 .endm
 
 .macro SAVE_CPU pc=1
@@ -32,6 +33,7 @@
         mov %ebx, (4*SP)(%ebp)
         mov %edx, (4*BP)(%ebp)
         mov %esi, (4*0)(%ebp)
+        mov %edi, (4*1)(%ebp)
 .endm
 
 _(bt_interp_one):
