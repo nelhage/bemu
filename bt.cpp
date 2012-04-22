@@ -242,18 +242,22 @@ void bt_setup_segv_handler() {
  * Register use
  * ------------
  * During execution of a frag, %ebp points to the global beta_cpu
- * being executed. We do no register allocation, and back all of the
- * \Beta's registers with memory. At frag entry and exit (but *not*
- * during frag execution), %eax holds the emulated program counter;
- * `bt_enter' and `bt_continue' in bt_helper.S are responsible for
- * loading/restoring CPU.PC.
+ * being executed. At frag entry and exit (but *not* during frag
+ * execution), %eax holds the emulated program counter; `bt_enter' and
+ * `bt_continue' in bt_helper.S are responsible for loading/restoring
+ * CPU.PC.
  *
- * We perform a minimal hard-coded register allocation: During frag
- * execution, %esi holds R0, %ebx holds SP, and %edx is used to store
- * BP. These are swapped to and from CPU->regs[] on frag entry and
- * exit, as well as when calling out to the interpreter.  This trivial
- * optimization is nonetheless good for a significant speedup on some
- * stack-heavy test cases.
+ * Most of the Beta registers are backed by memory directly in the
+ * beta_cpu structure, but we perform a minimal hard-coded register
+ * allocation for some commonly-used registers: During frag execution,
+ * %esi holds R0, %edi holds R1, %ebx holds SP, and %edx is used to
+ * store BP. These are swapped to and from CPU->regs[] on frag entry
+ * and exit, as well as when calling out to the interpreter.  This
+ * save/load of state happpens via the SAVE_CPU/LOAD_CPU macros in
+ * bt_helper.S
+ *
+ * This trivial optimization is nonetheless good for a significant
+ * speedup on some stack-heavy test cases.
  *
  * Chaining
  * --------
