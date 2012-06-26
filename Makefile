@@ -6,7 +6,7 @@ SRCS=bemu.cpp bcpu.cpp bdecode.cpp bt.cpp bclock.cpp bconsole.cpp
 ASMSRCS=bt_helper.S
 OBJECTS=$(SRCS:.cpp=.o) $(ASMSRCS:.S=.o)
 GEN_H=instructions.h
-HEADERS=$(SRCS:.cpp=.h) $(GEN_H) x86.h
+DEPFILES=$(SRCS:%.cpp=.%.d)
 
 BEMU=bemu
 UASM=uasm/uasm
@@ -14,19 +14,21 @@ UASM=uasm/uasm
 TESTS=sancheck litmus bench1 bench2 bench3 bench4 supervisor align qsort timer trap jmptab
 TESTS_BIN=$(TESTS:%=tests/%.bin)
 
-all: $(BEMU) $(TESTS_BIN)
+all: $(BEMU) $(TESTS_BIN) $(DEPFILES)
 
 $(BEMU): $(OBJECTS)
-	$(CXX) -o $@ $(LDFLAGS) $^
+	$(CXX) -o $@ $(LDFLAGS) $(filter-out .config/%,$^)
 
 $(UASM): CXXFLAGS += -w
 $(UASM):
 uasm: $(UASM)
 
+$(OBJECTS): instructions.h .config/CXX .config/CPPFLAGS .config/CXXFLAGS
+$(BEMU): .config/LDFLAGS
+$(ASMSRCS:.S=.o): .config/ASFLAGS
+
 instructions.h: insts.pl
 	perl $< -cxx > $@
-
-$(OBJECTS): $(HEADERS)
 
 clean:
 	rm -f $(OBJECTS) $(BEMU)
@@ -46,7 +48,7 @@ run-timer: BEMUOPTS += -o clock
 test: $(TESTS_BIN) $(UASM) $(BEMU)
 	./run-tests.sh
 
-TAGS: $(SRCS) $(ASMSRCS) $(HEADERS)
+TAGS: $(SRCS) $(ASMSRCS)
 	etags $^
 
 tags: TAGS
@@ -55,3 +57,6 @@ check-syntax:
 	$(CC) $(CCFLAGS) -Wall -Wextra -fsyntax-only $(CHK_SOURCES)
 
 .phony: CLEAN tags check-syntax uasm
+
+include Makefile.lib
+-include $(DEPFILES)
