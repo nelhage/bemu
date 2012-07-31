@@ -18,7 +18,7 @@
     if(DEBUG >= lev)                                                    \
         printf("%s:%d: " fmt "\n", __FILE__, __LINE__, ## __VA_ARGS__); \
     } while (0)
-#define ASSERT(x)     if(!(x)) {LOG("FAILED ASSERT : %s", #x); exit(1);}
+#define ASSERT(x)     if(!(x)) {LOG("FAILED ASSERT : %s", #x); abort();}
 #else
 #define LOG_(lev, fmt, ...)
 #define ASSERT(x)
