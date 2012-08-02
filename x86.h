@@ -153,7 +153,7 @@ public:
         emit(w);
     }
 
-    void rel32(uint32_t label) {
+    void rel32(uintptr_t label) {
         word(((uint8_t*)label) - out - 4);
     }
 
@@ -197,7 +197,7 @@ public:
     template<class Mem> void idiv(Mem rhs);
     void cdq();
 
-    void call(uint32_t addr);
+    void call(uintptr_t addr);
     template<class Mem> void call(Mem target);
 
     template<class Mem> void inc(Mem target);
@@ -461,7 +461,7 @@ inline void X86Assembler::cdq()
     byte(0x99);
 }
 
-inline void X86Assembler::call(uint32_t addr) {
+inline void X86Assembler::call(uintptr_t addr) {
     byte(0xe8);
     rel32(addr);
 }
@@ -479,7 +479,7 @@ inline void X86Assembler::call(Mem target, true_type) {
 
 template<class Mem>
 inline void X86Assembler::call(Mem target, false_type) {
-    call((uint32_t)target);
+    call((uintptr_t)target);
 }
 
 template<class Mem>
@@ -500,7 +500,7 @@ inline void X86Assembler::jmp(X86Label8 &label) {
 
 inline void X86Assembler::jmp(uint8_t *addr) {
     byte(0xe9);
-    rel32((uint32_t)addr);
+    rel32((uintptr_t)addr);
 }
 
 template<class Mem>
@@ -517,7 +517,7 @@ inline void X86Assembler::jcc(cc_t cc, int8_t off) {
 inline void X86Assembler::jcc(cc_t cc, uint8_t *addr) {
     byte(0x0f);
     byte(0x80 | cc);
-    rel32((uint32_t)addr);
+    rel32((uintptr_t)addr);
 }
 
 inline void X86Assembler::jcc(cc_t cc, X86Label8 &label) {

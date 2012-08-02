@@ -121,10 +121,10 @@ void bt_insert_frag(compiled_frag *frag) {
     frag->hash_next = old;
 }
 
-static int bt_alloc_segdesc(uint32_t base, uint32_t pages);
+static int bt_alloc_segdesc(uintptr_t base, uint32_t pages);
 
 #ifdef __linux__
-static int bt_alloc_segdesc(uint32_t base, uint32_t pages)
+static int bt_alloc_segdesc(uintptr_t base, uint32_t pages)
 {
     /* FIXME to actually allocate an unused descriptor */
     int segment = 0;
@@ -147,7 +147,7 @@ static int bt_alloc_segdesc(uint32_t base, uint32_t pages)
     return segment;
 }
 #elif defined(__APPLE__)
-static  int bt_alloc_segdesc(uint32_t base, uint32_t pages)
+static  int bt_alloc_segdesc(uintptr_t base, uint32_t pages)
 {
     int segment;
     union ldt_entry desc = {
@@ -177,7 +177,7 @@ int bt_setup_cpu_segment(beta_cpu *cpu) {
     uint32_t pages;
 
     pages = (((cpu->memsize + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)) >> PAGE_SHIFT) - 1;
-    return bt_alloc_segdesc((uint32_t)cpu->memory, pages);
+    return bt_alloc_segdesc((uintptr_t)cpu->memory, pages);
 }
 
 void bt_segv(int signo UNUSED, siginfo_t *info, void *ctx) {
@@ -535,7 +535,7 @@ inline void bt_translate_prologue(X86Assembler *buf, byteptr pc) {
 
     if(!(pc & PC_SUPERVISOR)) {
         buf->test(-1,
-                  X86Mem(X86EBP, offsetof(beta_cpu, pending_interrupts)));
+                  X86Mem(X86EBP, (uint32_t)offsetof(beta_cpu, pending_interrupts)));
         buf->jcc(CC_NZ, (uint8_t*)bt_interrupt);
     }
 }
@@ -553,15 +553,16 @@ extern "C" {
 };
 
 inline void bt_translate_interp(X86Assembler *buf, byteptr pc) {
-    buf->mov(pc,     X86Mem(X86EBP, offsetof(beta_cpu, PC)));
+    buf->mov(pc,     X86Mem(X86EBP, (uint32_t)offsetof(beta_cpu, PC)));
     buf->call(bt_interp_one);
     buf->call(bt_continue_chain);
 }
 
 inline void bt_translate_tail(X86Assembler *buf, byteptr pc, bdecode *inst) {
     if(profile_instructions && inst->opcode != OP_CALLOUT)
-        buf->inc(X86Mem(X86EBP, offsetof(beta_cpu, opcode_counts) +
-                        inst->opcode * sizeof(uint32_t)));
+        buf->inc(X86Mem(X86EBP, (uint32_t)
+                        (offsetof(beta_cpu, opcode_counts) +
+                         inst->opcode * sizeof(uint32_t))));
 
     switch(inst->opcode) {
     case OP_BT:
@@ -625,8 +626,9 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
 
     for(i = 0; i < frag->ninsts; i++) {
         if (profile_instructions)
-            buf.inc(X86Mem(X86EBP,offsetof(beta_cpu, opcode_counts) +
-                           frag->insts[i].opcode * sizeof(uint32_t)));
+            buf.inc(X86Mem(X86EBP, (uint32_t)
+                           (offsetof(beta_cpu, opcode_counts) +
+                            frag->insts[i].opcode * sizeof(uint32_t))));
 
         bt_translate_inst(&buf, pc, &frag->insts[i]);
         pc += 4;
@@ -635,7 +637,7 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
     /* Update CPU.inst_count */
 
     buf.add_(frag->ninsts + (frag->tail ? 1 : 0),
-             X86Mem(X86EBP, offsetof(beta_cpu, inst_count)));
+             X86Mem(X86EBP, (uint32_t)offsetof(beta_cpu, inst_count)));
 
     if(frag->tail) {
         bt_translate_tail(&buf, pc, &frag->insts[i]);
