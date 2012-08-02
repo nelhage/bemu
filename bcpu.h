@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "bdecode.h"
 
-#define PC_SUPERVISOR   0x80000000
+#define PC_SUPERVISOR   ((uint32_t)0x80000000)
 #define ISR_RESET       (PC_SUPERVISOR | 0x00000000)
 #define ISR_ILLOP       (PC_SUPERVISOR | 0x00000004)
 #define ISR_CLK         (PC_SUPERVISOR | 0x00000008)
