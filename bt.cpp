@@ -20,6 +20,8 @@ int modify_ldt(int func, struct user_desc *ptr, unsigned long bytes) {
 #include <i386/user_ldt.h>
 #endif
 
+#define asmcall __attribute__((used, regparm(3)))
+
 #define BT_STACK_SIZE  (1 << 16)
 
 /* 1MB translation code cache */
@@ -45,7 +47,7 @@ extern "C" void bt_continue_chain(void);
 extern "C" void bt_continue_ic(void);
 extern "C" void bt_interrupt(void);
 
-extern "C" void bt_translate_and_run(beta_cpu *cpu, uint32_t used, ccbuff chainptr) __attribute__((noreturn, used, regparm(3)));
+extern "C" void asmcall bt_translate_and_run(beta_cpu *cpu, uint32_t used, ccbuff chainptr) __attribute__((noreturn, used));
 static ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag);
 
 /*
@@ -541,13 +543,12 @@ inline void bt_translate_prologue(X86Assembler *buf, byteptr pc) {
 }
 
 extern "C" {
-    void bt_step_one(beta_cpu *cpu) __attribute__((used, regparm(1)));
+    void asmcall bt_step_one(beta_cpu *cpu);
     void bt_step_one(beta_cpu *cpu) {
         cpu->step_one();
     }
 
-    void bt_process_interrupt(beta_cpu *cpu) __attribute__((used, regparm(1)));
-    void bt_process_interrupt(beta_cpu *cpu) {
+    void asmcall bt_process_interrupt(beta_cpu *cpu) {
         cpu->process_interrupt();
     }
 };
