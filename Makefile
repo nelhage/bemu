@@ -12,7 +12,7 @@ ASFLAGS=-m$(BITS) -g
 LDFLAGS=-m$(BITS) -pthread
 
 SRCS=bemu.cpp bcpu.cpp bdecode.cpp bt.cpp bclock.cpp bconsole.cpp
-ASMSRCS=bt_helper.S
+ASMSRCS=bt_helper_$(BITS).S
 OBJECTS=$(SRCS:.cpp=.o) $(ASMSRCS:.S=.o)
 GEN_H=instructions.h
 DEPFILES=$(SRCS:%.cpp=.%.d)
