@@ -1,5 +1,5 @@
 CXXFLAGS=-m32 -O2 -g -Wall -pthread $(if $(DEBUG),-DDEBUG=$(DEBUG))
-ASFLAGS=-m32
+ASFLAGS=-m32 -g
 LDFLAGS=-m32 -pthread
 
 SRCS=bemu.cpp bcpu.cpp bdecode.cpp bt.cpp bclock.cpp bconsole.cpp
