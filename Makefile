@@ -1,6 +1,15 @@
-CXXFLAGS=-m32 -O2 -g -Wall -pthread $(if $(DEBUG),-DDEBUG=$(DEBUG))
-ASFLAGS=-m32 -g
-LDFLAGS=-m32 -pthread
+ARCH=$(shell uname -m)
+ifeq ($(ARCH),x86_64)
+BITS=64
+else ifeq ($(ARCH),i686)
+BITS=32
+else
+$(error Unsupported architecture $(ARCH))
+endif
+
+CXXFLAGS=-m$(BITS) -O2 -g -Wall -pthread $(if $(DEBUG),-DDEBUG=$(DEBUG)) -DHOST_BITS=$(BITS)
+ASFLAGS=-m$(BITS) -g
+LDFLAGS=-m$(BITS) -pthread
 
 SRCS=bemu.cpp bcpu.cpp bdecode.cpp bt.cpp bclock.cpp bconsole.cpp
 ASMSRCS=bt_helper.S
