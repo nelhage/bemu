@@ -716,13 +716,11 @@ void bt_run(beta_cpu *cpu) {
     bt_stack_base += BT_STACK_SIZE;
 
     if(!frag_code_cache) {
-        frag_code_cache = (uint8_t*)valloc(BT_CACHE_SIZE);
+        frag_code_cache = (uint8_t*)mmap(NULL, BT_CACHE_SIZE,
+                                         PROT_READ|PROT_WRITE|PROT_EXEC,
+                                         MAP_PRIVATE|MAP_32BIT|MAP_ANONYMOUS, -1, 0);
         if(frag_code_cache == NULL) {
             panic("Could not allocate BT cache!");
-        }
-        if(mprotect(frag_code_cache, BT_CACHE_SIZE, PROT_READ|PROT_WRITE|PROT_EXEC)) {
-            perror("mprotect");
-            panic("Unable to mprotect() the BT cache!");
         }
         bt_clear_cache();
     }
