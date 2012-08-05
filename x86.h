@@ -308,6 +308,7 @@ struct X86ReferenceIndirect {
     }
 
     void emit(X86Assembler *cc, X86Register reg) {
+        ASSERT(base.bits == HOST_BITS);
         ASSERT(base.val != REG_DISP32);
         ASSERT(base.val != REG_SIB);
         cc->modrm(MOD_INDIR, reg.val, base.val);
@@ -323,6 +324,7 @@ struct X86ReferenceIndirect32 {
     }
 
     void emit(X86Assembler *cc, X86Register reg) {
+        ASSERT(base.bits == HOST_BITS);
         ASSERT(base.val != REG_SIB);
         cc->modrm(MOD_INDIR_DISP32, reg.val, base.val);
         cc->word(offset);
@@ -338,6 +340,7 @@ struct X86ReferenceIndirect8 {
     }
 
     void emit(X86Assembler *cc, X86Register reg) {
+        ASSERT(base.bits == HOST_BITS);
         ASSERT(base.val != REG_SIB);
         cc->modrm(MOD_INDIR_DISP8, reg.val, base.val);
         cc->byte(offset);
@@ -368,6 +371,8 @@ struct X86ReferenceSIB {
 
     void emit(X86Assembler *cc, X86Register reg) {
         uint8_t sv;
+        ASSERT(base.bits == HOST_BITS);
+        ASSERT(index.bits == HOST_BITS);
         switch(scale) {
 #define S(n) case n: sv = SCALE_##n
             S(1); S(2); S(4); S(8);
