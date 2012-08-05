@@ -123,6 +123,7 @@ void bt_insert_frag(compiled_frag *frag) {
     frag->hash_next = old;
 }
 
+#ifdef __i386__
 static int bt_alloc_segdesc(uintptr_t base, uint32_t pages);
 
 #ifdef __linux__
@@ -181,34 +182,63 @@ int bt_setup_cpu_segment(beta_cpu *cpu) {
     pages = (((cpu->memsize + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)) >> PAGE_SHIFT) - 1;
     return bt_alloc_segdesc((uintptr_t)cpu->memory, pages);
 }
+#endif
+
+#ifdef __x86_64__
+#define BEMU_REG_IP     REG_RIP
+#define BEMU_REG_BP     REG_RBP
+#else
+#define BEMU_REG_IP     REG_EIP
+#define BEMU_REG_BP     REG_EBP
+#endif
+
+#ifdef __x86_64__
+byteptr bt_decode_fault_addr(ucontext_t *uctx, beta_cpu *cpu, bdecode *insn) {
+    switch (insn->opcode) {
+    case OP_LD:
+    case OP_ST:
+    case OP_LDR:
+        break;
+    default:
+        panic("Fault from a non-memory opcode?");
+        break;
+    }
+    return (uint8_t*)uctx->uc_mcontext.gregs[REG_RAX] - (uint8_t*)cpu->memory;
+}
+#else
+byteptr bt_decode_fault_addr(ucontext_t *uctx, beta_cpu *cpu, bdecode *insn) {
+    uint8_t *eip = (uint8_t*)uctx->uc_mcontext.gregs[REG_EIP];
+    switch (insn->opcode) {
+    case OP_LD:
+    case OP_ST:
+        return uctx->uc_mcontext.gregs[REG_EAX];
+        break;
+    case OP_LDR:
+        /* Skip the FS prefix, the opcode, and the modrm byte to find
+           the 32-bit literal displacement */
+        return *(uint32_t*)(eip + 3);
+        break;
+    default:
+        panic("Fault from a non-memory opcode?");
+        break;
+    }
+}
+#endif
 
 void bt_segv(int signo UNUSED, siginfo_t *info, void *ctx) {
     ucontext_t *uctx = (ucontext_t*)ctx;
-    uint8_t *eip = (uint8_t*)uctx->uc_mcontext.gregs[REG_EIP];
+    uint8_t *eip = (uint8_t*)uctx->uc_mcontext.gregs[BEMU_REG_IP];
     if (eip >= frag_code_cache && eip < frag_code_alloc) {
         fault_entry *f;
         for (f = fault_table; f < fault_table_alloc; f++)
             if (f->eip == eip)
                 break;
         if (f != fault_table_alloc) {
-            beta_cpu *cpu = (beta_cpu*)uctx->uc_mcontext.gregs[REG_EBP];
+            beta_cpu *cpu = (beta_cpu*)uctx->uc_mcontext.gregs[BEMU_REG_BP];
             bdecode decode;
             byteptr addr;
             decode_op(cpu->read_mem32(f->pc), &decode);
-            switch (decode.opcode) {
-            case OP_LD:
-            case OP_ST:
-                addr = uctx->uc_mcontext.gregs[REG_EAX];
-                break;
-            case OP_LDR:
-                /* Skip the FS prefix, the opcode, and the modrm byte to find
-                   the 32-bit literal displacement */
-                addr = *(uint32_t*)(eip + 3);
-                break;
-            default:
-                panic("Fault from a non-memory opcode?");
-                break;
-            }
+            addr = bt_decode_fault_addr(uctx, cpu, &decode);
             panic("Illegal memory reference (PC=%08x) %08x:\n"
                   "  %s", f->pc, addr, pp_decode(&decode));
         }
@@ -479,9 +509,15 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
 
         buf->and_(~(PC_SUPERVISOR | 0x3), X86EAX);
 
+#ifdef __x86_64__
+        buf->add_(X86Mem(X86EBP, (uint32_t)offsetof(beta_cpu, memory)), X86RAX);
+        bt_save_fault_entry(buf, pc);
+        buf->mov(X86ECX, X86Mem(X86RAX));
+#else
         bt_save_fault_entry(buf, pc);
         buf->byte(PREFIX_SEG_FS);
         buf->mov(X86ECX, X86Mem(X86EAX));
+#endif
 
         break;
     case OP_LD:
@@ -492,18 +528,31 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
 
         buf->and_(~(PC_SUPERVISOR | 0x3), X86EAX);
 
+#ifdef __x86_64__
+        buf->add_(X86Mem(X86EBP, (uint32_t)offsetof(beta_cpu, memory)), X86RAX);
+        bt_save_fault_entry(buf, pc);
+        buf->mov(X86Mem(X86RAX), X86EAX);
+#else
         bt_save_fault_entry(buf, pc);
         buf->byte(PREFIX_SEG_FS);
         buf->mov(X86Mem(X86EAX), X86EAX);
+#endif
+
 
         bt_store_reg(buf, X86EAX, inst->rc);
         break;
     case OP_LDR:
-
+#ifdef __x86_64__
+        buf->mov(X86Mem(X86RBP, (uint32_t)offsetof(beta_cpu, memory)), X86RAX);
+        buf->add_(((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03)), X86RAX);
+        bt_save_fault_entry(buf, pc);
+        buf->mov(X86Mem(X86EAX), X86EAX);
+#else
         bt_save_fault_entry(buf, pc);
         buf->byte(PREFIX_SEG_FS);
         buf->mov(X86Mem(((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03))),
                  X86EAX);
+#endif
 
         bt_store_reg(buf, X86EAX, inst->rc);
         break;
@@ -678,7 +727,9 @@ void bt_run(beta_cpu *cpu) {
         bt_clear_cache();
     }
 
+#ifdef __i686__
     cpu->segment = bt_setup_cpu_segment(cpu);
+#endif
     bt_setup_segv_handler();
 
     bt_translate_and_run(cpu, 1, NULL);
@@ -752,6 +803,8 @@ void bt_translate_and_run(beta_cpu *cpu, uint32_t exact, ccbuff chainptr) {
         LOG("Chaining to frag 0x%08x", cfrag->start_pc);
     }
 
+#ifdef __i686__
     __asm__("movw %%ax, %%fs\n" :: "a"(cpu->segment<<3|0x7));
+#endif
     bt_enter(cfrag->code);
 }

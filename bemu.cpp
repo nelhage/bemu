@@ -148,6 +148,23 @@ void handle_sigint(int sig) {
     CPU.halt = 1;
 }
 
+uint32_t* map_memory(int fd, size_t len) {
+#ifdef __x86_64__
+    void *map = mmap(NULL, (1UL << 32) - 1, PROT_NONE,
+                     MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+    if (map == MAP_FAILED)
+        return NULL;
+    void *mem = mmap(map, len, PROT_READ|PROT_WRITE,
+                     MAP_PRIVATE|MAP_FIXED, fd, 0);
+#else
+    void *mem = mmap(NULL, len, PROT_READ|PROT_WRITE,
+                     MAP_PRIVATE, fd, 0);
+#endif
+    if (mem == MAP_FAILED)
+        return NULL;
+    return static_cast<uint32_t*>(mem);
+}
+
 int main(int argc, char **argv)
 {
     int fd;
@@ -167,9 +184,9 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
-    if((CPU.memory = (uint32_t*)mmap(NULL, stat.st_size, PROT_READ|PROT_WRITE,
-                                     MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
-        perror("mmap");
+    CPU.memory = map_memory(fd, stat.st_size);
+    if (CPU.memory == NULL) {
+        perror("mapping memory");
         exit(-1);
     }
     CPU.memsize = stat.st_size;
