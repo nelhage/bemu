@@ -187,31 +187,19 @@ int bt_setup_cpu_segment(beta_cpu *cpu) {
 #ifdef __x86_64__
 #define BEMU_REG_IP     REG_RIP
 #define BEMU_REG_BP     REG_RBP
+#define BEMU_REG_AX     REG_RAX
 #else
 #define BEMU_REG_IP     REG_EIP
 #define BEMU_REG_BP     REG_EBP
+#define BEMU_REG_AX     REG_EAX
 #endif
 
-#ifdef __x86_64__
 byteptr bt_decode_fault_addr(ucontext_t *uctx, beta_cpu *cpu, bdecode *insn) {
+    uint8_t *eip = (uint8_t*)uctx->uc_mcontext.gregs[BEMU_REG_IP];
     switch (insn->opcode) {
     case OP_LD:
     case OP_ST:
-    case OP_LDR:
-        break;
-    default:
-        panic("Fault from a non-memory opcode?");
-        break;
-    }
-    return (uint8_t*)uctx->uc_mcontext.gregs[REG_RAX] - (uint8_t*)cpu->memory;
-}
-#else
-byteptr bt_decode_fault_addr(ucontext_t *uctx, beta_cpu *cpu, bdecode *insn) {
-    uint8_t *eip = (uint8_t*)uctx->uc_mcontext.gregs[REG_EIP];
-    switch (insn->opcode) {
-    case OP_LD:
-    case OP_ST:
-        return uctx->uc_mcontext.gregs[REG_EAX];
+        return uctx->uc_mcontext.gregs[BEMU_REG_AX];
         break;
     case OP_LDR:
         /* Skip the FS prefix, the opcode, and the modrm byte to find
@@ -223,7 +211,6 @@ byteptr bt_decode_fault_addr(ucontext_t *uctx, beta_cpu *cpu, bdecode *insn) {
         break;
     }
 }
-#endif
 
 void bt_segv(int signo UNUSED, siginfo_t *info, void *ctx) {
     ucontext_t *uctx = (ucontext_t*)ctx;
@@ -345,7 +332,9 @@ void bt_load_reg(X86Assembler *cc, uint8_t breg, X86Register reg) {
     switch (breg) {
     case 31: cc->xor_(reg, reg);   break;
     case 0:  cc->mov(X86ESI, reg); break;
+#ifndef __x86_64__
     case 1:  cc->mov(X86EDI, reg); break;
+#endif
     case SP: cc->mov(X86EBX, reg); break;
     case BP: cc->mov(X86EDX, reg); break;
     default: cc->mov(bt_register_address(breg), reg);
@@ -357,7 +346,9 @@ void bt_store_reg(X86Assembler *cc, T val, uint8_t breg) {
     switch (breg) {
     case 31: break;
     case 0:  cc->mov(val, X86ESI); break;
+#ifndef __x86_64__
     case 1:  cc->mov(val, X86EDI); break;
+#endif
     case SP: cc->mov(val, X86EBX); break;
     case BP: cc->mov(val, X86EDX); break;
     default: cc->mov(val, bt_register_address(breg));
@@ -510,9 +501,8 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
         buf->and_(~(PC_SUPERVISOR | 0x3), X86EAX);
 
 #ifdef __x86_64__
-        buf->add_(X86Mem(X86EBP, (uint32_t)offsetof(beta_cpu, memory)), X86RAX);
         bt_save_fault_entry(buf, pc);
-        buf->mov(X86ECX, X86Mem(X86RAX));
+        buf->mov(X86ECX, X86Mem(0, X86RDI, X86RAX));
 #else
         bt_save_fault_entry(buf, pc);
         buf->byte(PREFIX_SEG_FS);
@@ -529,9 +519,8 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
         buf->and_(~(PC_SUPERVISOR | 0x3), X86EAX);
 
 #ifdef __x86_64__
-        buf->add_(X86Mem(X86EBP, (uint32_t)offsetof(beta_cpu, memory)), X86RAX);
         bt_save_fault_entry(buf, pc);
-        buf->mov(X86Mem(X86RAX), X86EAX);
+        buf->mov(X86Mem(0, X86RDI, X86RAX), X86EAX);
 #else
         bt_save_fault_entry(buf, pc);
         buf->byte(PREFIX_SEG_FS);
@@ -543,10 +532,8 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
         break;
     case OP_LDR:
 #ifdef __x86_64__
-        buf->mov(X86Mem(X86RBP, (uint32_t)offsetof(beta_cpu, memory)), X86RAX);
-        buf->add_(((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03)), X86RAX);
         bt_save_fault_entry(buf, pc);
-        buf->mov(X86Mem(X86EAX), X86EAX);
+        buf->mov(X86Mem(X86RDI, ((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03))), X86EAX);
 #else
         bt_save_fault_entry(buf, pc);
         buf->byte(PREFIX_SEG_FS);

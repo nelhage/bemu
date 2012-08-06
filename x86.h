@@ -374,15 +374,20 @@ struct X86ReferenceSIB {
         ASSERT(base.bits == HOST_BITS);
         ASSERT(index.bits == HOST_BITS);
         switch(scale) {
-#define S(n) case n: sv = SCALE_##n
+#define S(n) case n: sv = SCALE_##n; break
             S(1); S(2); S(4); S(8);
 #undef S
         default:
             panic("Illegal scale value: %d", scale);
         }
-        cc->modrm(MOD_INDIR_DISP32, reg.val, REG_SIB);
-        cc->sib(sv, index.val, base.val);
-        cc->word(offset);
+        if (offset) {
+            cc->modrm(MOD_INDIR_DISP32, reg.val, REG_SIB);
+            cc->sib(sv, index.val, base.val);
+            cc->word(offset);
+        } else {
+            cc->modrm(MOD_INDIR, reg.val, REG_SIB);
+            cc->sib(sv, index.val, base.val);
+        }
     }
 };
 template<> struct is_modrm<X86ReferenceSIB> { const static true_type val; };
@@ -403,7 +408,7 @@ static inline X86ReferenceAbs X86Mem(uint32_t addr) {
     X86ReferenceAbs r = {addr};
     return r;
 }
-static inline X86ReferenceSIB X86Mem(uint32_t off, X86Register base, X86Register index, uint8_t scale) {
+static inline X86ReferenceSIB X86Mem(uint32_t off, X86Register base, X86Register index, uint8_t scale = 1) {
     X86ReferenceSIB r = {off, base, index, scale};
     return r;
 }
