@@ -202,8 +202,11 @@ byteptr bt_decode_fault_addr(ucontext_t *uctx, beta_cpu *cpu, bdecode *insn) {
         return uctx->uc_mcontext.gregs[BEMU_REG_AX];
         break;
     case OP_LDR:
-        /* Skip the FS prefix, the opcode, and the modrm byte to find
-           the 32-bit literal displacement */
+        /*
+         * Skip three bytes to find the immediate displacement. This
+         * is the opcode, the mod/rm byte, and either the %fs: prefix
+         * or the SIB byte depending on architecture.
+         */
         return *(uint32_t*)(eip + 3);
         break;
     default:
