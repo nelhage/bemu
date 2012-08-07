@@ -275,11 +275,11 @@ public:
     int bits;
     X86Register(int v, int b = 0) : val(v), bits(b) {};
     void rex(X86Assembler *cc, X86Register other) {
-        cc->rex(bits, other.bits);
+        cc->rex(bits, other.bits, other.val > 7, false, val > 7);
     }
     void emit(X86Assembler *cc, X86Register reg) {
         ASSERT(bits == reg.bits);
-        cc->modrm(MOD_REG, reg.val, val);
+        cc->modrm(MOD_REG, reg.val & 7, val & 7);
     }
 };
 #ifdef __x86_64__
@@ -299,19 +299,32 @@ R(BP, 0x05);
 R(SI, 0x06);
 R(DI, 0x07);
 #undef R
+#ifdef __x86_64__
+#define R(num) \
+    static X86Register X86R##num##D(num, 32);        \
+    static X86Register X86R##num(num, 64)
+R(8);
+R(9);
+R(10);
+R(11);
+R(12);
+R(13);
+R(14);
+R(15);
+#endif
 template<> struct is_modrm<X86Register> { const static true_type val; };
 
 struct X86ReferenceIndirect {
     X86Register base;
     void rex(X86Assembler *cc, X86Register other) {
-        cc->rex(other.bits == 64);
+        cc->rex(other.bits == 64, other.val > 7, false, base.val > 7);
     }
 
     void emit(X86Assembler *cc, X86Register reg) {
         ASSERT(base.bits == HOST_BITS);
         ASSERT(base.val != REG_DISP32);
         ASSERT(base.val != REG_SIB);
-        cc->modrm(MOD_INDIR, reg.val, base.val);
+        cc->modrm(MOD_INDIR, reg.val & 7, base.val & 7);
     }
 };
 template<> struct is_modrm<X86ReferenceIndirect> { const static true_type val; };
@@ -320,13 +333,13 @@ struct X86ReferenceIndirect32 {
     X86Register base;
     uint32_t offset;
     void rex(X86Assembler *cc, X86Register other) {
-        cc->rex(other.bits == 64);
+        cc->rex(other.bits == 64, other.val > 7, false, base.val > 7);
     }
 
     void emit(X86Assembler *cc, X86Register reg) {
         ASSERT(base.bits == HOST_BITS);
         ASSERT(base.val != REG_SIB);
-        cc->modrm(MOD_INDIR_DISP32, reg.val, base.val);
+        cc->modrm(MOD_INDIR_DISP32, reg.val & 7, base.val & 7);
         cc->word(offset);
     }
 };
@@ -336,13 +349,13 @@ struct X86ReferenceIndirect8 {
     X86Register base;
     uint8_t offset;
     void rex(X86Assembler *cc, X86Register other) {
-        cc->rex(other.bits == 64);
+        cc->rex(other.bits == 64, other.val > 7, false, base.val > 7);
     }
 
     void emit(X86Assembler *cc, X86Register reg) {
         ASSERT(base.bits == HOST_BITS);
         ASSERT(base.val != REG_SIB);
-        cc->modrm(MOD_INDIR_DISP8, reg.val, base.val);
+        cc->modrm(MOD_INDIR_DISP8, reg.val & 7, base.val & 7);
         cc->byte(offset);
     }
 };
@@ -351,11 +364,11 @@ template<> struct is_modrm<X86ReferenceIndirect8> { const static true_type val; 
 struct X86ReferenceAbs {
     uint32_t address;
     void rex(X86Assembler *cc, X86Register other) {
-        cc->rex(other.bits == 64);
+        cc->rex(other.bits == 64, other.val > 7);
     }
 
     void emit(X86Assembler *cc, X86Register reg) {
-        cc->modrm(MOD_INDIR, reg.val, REG_DISP32);
+        cc->modrm(MOD_INDIR, reg.val & 7, REG_DISP32);
         cc->word(address);
     }
 };
@@ -366,7 +379,7 @@ struct X86ReferenceSIB {
     X86Register base, index;
     uint8_t scale;
     void rex(X86Assembler *cc, X86Register other) {
-        cc->rex(other.bits == 64);
+        cc->rex(other.bits == 64, other.val > 7, index.val > 7, base.val > 7);
     }
 
     void emit(X86Assembler *cc, X86Register reg) {
@@ -381,12 +394,12 @@ struct X86ReferenceSIB {
             panic("Illegal scale value: %d", scale);
         }
         if (offset) {
-            cc->modrm(MOD_INDIR_DISP32, reg.val, REG_SIB);
+            cc->modrm(MOD_INDIR_DISP32, reg.val & 7, REG_SIB);
             cc->sib(sv, index.val, base.val);
             cc->word(offset);
         } else {
-            cc->modrm(MOD_INDIR, reg.val, REG_SIB);
-            cc->sib(sv, index.val, base.val);
+            cc->modrm(MOD_INDIR, reg.val & 7, REG_SIB);
+            cc->sib(sv, index.val & 7, base.val & 7);
         }
     }
 };
@@ -430,14 +443,14 @@ FOR_EACH_INT_TYPE(D)
 
 template<class Inst>
 inline void X86Emitter<Inst>::emit_imm(X86Assembler *cc, X86Register rhs, none) {
-    cc->rex(rhs.bits == 64);
+    cc->rex(rhs.bits == 64, false, rhs.val > 7);
     cc->byte(Inst::op_imm_rm::val);
-    cc->modrm(MOD_REG, Inst::subop_imm_rm::val, rhs.val);
+    cc->modrm(MOD_REG, Inst::subop_imm_rm::val, rhs.val & 7);
 }
 
 template<class Inst>
 inline void X86Emitter<Inst>::emit_imm(X86Assembler *cc, X86Register rhs, uint8_t op_imm_r) {
-    cc->rex(rhs.bits == 64);
+    cc->rex(rhs.bits == 64, false, false, rhs.val > 7);
     cc->byte(Inst::op_imm_r::val + rhs.val);
 }
 
