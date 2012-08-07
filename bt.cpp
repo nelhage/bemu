@@ -203,11 +203,14 @@ byteptr bt_decode_fault_addr(ucontext_t *uctx, beta_cpu *cpu, bdecode *insn) {
         break;
     case OP_LDR:
         /*
-         * Skip three bytes to find the immediate displacement. This
-         * is the opcode, the mod/rm byte, and either the %fs: prefix
-         * or the SIB byte depending on architecture.
+         * Skip the opcode, the mod/rm byte, and (on i386) the %fs
+         * prefix to find the immediate offset.
          */
+#ifdef __x86_64__
+        return *(uint32_t*)(eip + 2);
+#else
         return *(uint32_t*)(eip + 3);
+#endif
         break;
     default:
         panic("Fault from a non-memory opcode?");
@@ -503,11 +506,10 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
 
         buf->and_(~(PC_SUPERVISOR | 0x3), X86EAX);
 
-#ifdef __x86_64__
         bt_save_fault_entry(buf, pc);
+#ifdef __x86_64__
         buf->mov(X86ECX, X86Mem(0, X86RDI, X86RAX));
 #else
-        bt_save_fault_entry(buf, pc);
         buf->byte(PREFIX_SEG_FS);
         buf->mov(X86ECX, X86Mem(X86EAX));
 #endif
@@ -521,11 +523,10 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
 
         buf->and_(~(PC_SUPERVISOR | 0x3), X86EAX);
 
-#ifdef __x86_64__
         bt_save_fault_entry(buf, pc);
+#ifdef __x86_64__
         buf->mov(X86Mem(0, X86RDI, X86RAX), X86EAX);
 #else
-        bt_save_fault_entry(buf, pc);
         buf->byte(PREFIX_SEG_FS);
         buf->mov(X86Mem(X86EAX), X86EAX);
 #endif
@@ -534,11 +535,10 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
         bt_store_reg(buf, X86EAX, inst->rc);
         break;
     case OP_LDR:
-#ifdef __x86_64__
         bt_save_fault_entry(buf, pc);
+#ifdef __x86_64__
         buf->mov(X86Mem(X86RDI, ((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03))), X86EAX);
 #else
-        bt_save_fault_entry(buf, pc);
         buf->byte(PREFIX_SEG_FS);
         buf->mov(X86Mem(((pc + 4 + 4*inst->imm) & ~(PC_SUPERVISOR|0x03))),
                  X86EAX);
