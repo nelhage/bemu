@@ -508,7 +508,7 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
 
         bt_save_fault_entry(buf, pc);
 #ifdef __x86_64__
-        buf->mov(X86ECX, X86Mem(0, X86RDI, X86RAX));
+        buf->mov(X86ECX, X86Mem(X86RDI, X86RAX));
 #else
         buf->byte(PREFIX_SEG_FS);
         buf->mov(X86ECX, X86Mem(X86EAX));
@@ -525,7 +525,7 @@ inline void bt_translate_other(X86Assembler *buf, byteptr pc, bdecode *inst) {
 
         bt_save_fault_entry(buf, pc);
 #ifdef __x86_64__
-        buf->mov(X86Mem(0, X86RDI, X86RAX), X86EAX);
+        buf->mov(X86Mem(X86RDI, X86RAX), X86EAX);
 #else
         buf->byte(PREFIX_SEG_FS);
         buf->mov(X86Mem(X86EAX), X86EAX);

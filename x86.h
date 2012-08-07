@@ -408,7 +408,7 @@ static inline X86ReferenceAbs X86Mem(uint32_t addr) {
     X86ReferenceAbs r = {addr};
     return r;
 }
-static inline X86ReferenceSIB X86Mem(uint32_t off, X86Register base, X86Register index, uint8_t scale = 1) {
+static inline X86ReferenceSIB X86Mem(X86Register base, X86Register index, uint8_t scale = 1, uint32_t off = 0) {
     X86ReferenceSIB r = {off, base, index, scale};
     return r;
 }
