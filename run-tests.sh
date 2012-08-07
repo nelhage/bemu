@@ -54,6 +54,7 @@ run_one jmptab   "[00] 00000007" "Hello."
 NONDET=1
 FAIL=1
 run_one trap     "Illegal memory reference" "00002000"
+run_one trap2    "Illegal memory reference" "00002000"
 
 ulimit -t 2
 OPTIONS="clock"
