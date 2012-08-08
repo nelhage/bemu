@@ -338,7 +338,9 @@ void bt_load_reg(X86Assembler *cc, uint8_t breg, X86Register reg) {
     switch (breg) {
     case 31: cc->xor_(reg, reg);   break;
     case 0:  cc->mov(X86ESI, reg); break;
-#ifndef __x86_64__
+#ifdef __x86_64__
+    case 1:  cc->mov(X86R8D, reg); break;
+#else
     case 1:  cc->mov(X86EDI, reg); break;
 #endif
     case SP: cc->mov(X86EBX, reg); break;
@@ -352,7 +354,9 @@ void bt_store_reg(X86Assembler *cc, T val, uint8_t breg) {
     switch (breg) {
     case 31: break;
     case 0:  cc->mov(val, X86ESI); break;
-#ifndef __x86_64__
+#ifdef __x86_64__
+    case 1:  cc->mov(val, X86R8D); break;
+#else
     case 1:  cc->mov(val, X86EDI); break;
 #endif
     case SP: cc->mov(val, X86EBX); break;

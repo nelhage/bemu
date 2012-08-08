@@ -23,6 +23,7 @@
         mov (4*SP)(%rbp), %ebx
         mov (4*BP)(%rbp), %edx
         mov (4*0)(%rbp),  %esi
+        mov (4*1)(%rbp),  %r8d
         mov (32*4 + 8)(%rbp), %rdi
 //        mov (4*1)(%rbp),  %edi
 .endm
@@ -34,6 +35,7 @@
         mov %ebx, (4*SP)(%rbp)
         mov %edx, (4*BP)(%rbp)
         mov %esi, (4*0)(%rbp)
+        mov %r8d, (4*1)(%rbp)
 //        mov %edi, (4*1)(%rbp)
 .endm
 
