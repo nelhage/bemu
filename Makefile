@@ -11,6 +11,8 @@ CXXFLAGS=-m$(BITS) -O2 -g -Wall -pthread $(if $(DEBUG),-DDEBUG=$(DEBUG)) -DHOST_
 ASFLAGS=-m$(BITS) -g
 LDFLAGS=-m$(BITS) -pthread
 
+MAKEVARS:=.makevars
+
 SRCS=bemu.cpp bcpu.cpp bdecode.cpp bt.cpp bclock.cpp bconsole.cpp
 ASMSRCS=bt_helper_$(BITS).S
 OBJECTS=$(SRCS:.cpp=.o) $(ASMSRCS:.S=.o)
@@ -26,15 +28,15 @@ TESTS_BIN=$(TESTS:%=tests/%.bin)
 all: $(BEMU) $(TESTS_BIN) $(DEPFILES)
 
 $(BEMU): $(OBJECTS)
-	$(CXX) -o $@ $(LDFLAGS) $(filter-out .config/%,$^)
+	$(CXX) -o $@ $(LDFLAGS) $(filter-out $(MAKEVARS)/%,$^)
 
 $(UASM): CXXFLAGS += -w
 $(UASM):
 uasm: $(UASM)
 
-$(OBJECTS): instructions.h .config/CXX .config/CPPFLAGS .config/CXXFLAGS
-$(BEMU): .config/LDFLAGS
-$(ASMSRCS:.S=.o): .config/ASFLAGS
+$(OBJECTS): instructions.h $(MAKEVARS)/CXX $(MAKEVARS)/CPPFLAGS $(MAKEVARS)/CXXFLAGS
+$(BEMU): $(MAKEVARS)/LDFLAGS
+$(ASMSRCS:.S=.o): $(MAKEVARS)/ASFLAGS
 
 instructions.h: insts.pl
 	perl $< -cxx > $@

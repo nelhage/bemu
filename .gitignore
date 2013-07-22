@@ -2,4 +2,4 @@
 bemu
 instructions.h
 .*.d
-.config
+.makevars
