@@ -1,30 +1,18 @@
 comma:=,
 MAKEVARS:=.makevars
 
-.%.d: %.cc $(MAKEVARS)/CXX $(MAKEVARS)/CPPFLAGS $(MAKEVARS)/CXXFLAGS
+define BUILD_d_file
+.%.d: %.$(1) $(MAKEVARS)/$(2) $(MAKEVARS)/CPPFLAGS $(MAKEVARS)/$(2)FLAGS
 	@set -e; trap 'rm -f $@.$$$$' EXIT; rm -f $@; \
-	 $(CXX) -MM $(CPPFLAGS) $(CXXFLAGS) $< > $@.$$$$; \
+	 $($(2)) -MM $(CPPFLAGS) $($(2)FLAGS) $< > $@.$$$$; \
 	 sed 's,\($(notdir $*)\)\.o[ :]*,$*.o $@ : ,g' < $@.$$$$ > $@
+endef
 
-.%.d: %.cpp $(MAKEVARS)/CXX $(MAKEVARS)/CPPFLAGS $(MAKEVARS)/CXXFLAGS
-	@set -e; trap 'rm -f $@.$$$$' EXIT; rm -f $@; \
-	 $(CXX) -MM $(CPPFLAGS) $(CXXFLAGS) $< > $@.$$$$; \
-	 sed 's,\($(notdir $*)\)\.o[ :]*,$*.o $@ : ,g' < $@.$$$$ > $@
-
-.%.d: %.C $(MAKEVARS)/CXX $(MAKEVARS)/CPPFLAGS $(MAKEVARS)/CXXFLAGS
-	@set -e; trap 'rm -f $@.$$$$' EXIT; rm -f $@; \
-	 $(CXX) -MM $(CPPFLAGS) $(CXXFLAGS) $< > $@.$$$$; \
-	 sed 's,\($(notdir $*)\)\.o[ :]*,$*.o $@ : ,g' < $@.$$$$ > $@
-
-.%.d: %.c $(MAKEVARS)/CC $(MAKEVARS)/CPPFLAGS $(MAKEVARS)/CFLAGS
-	@set -e; trap 'rm -f $@.$$$$' EXIT; rm -f $@; \
-	 $(CC) -MM $(CPPFLAGS) $(CFLAGS) $< > $@.$$$$; \
-	 sed 's,\($(notdir $*)\)\.o[ :]*,$*.o $@ : ,g' < $@.$$$$ > $@
-
-.%.d: %.S $(MAKEVARS)/AS $(MAKEVARS)/ASFLAGS
-	@set -e; trap 'rm -f $@.$$$$' EXIT; rm -f $@; \
-	 $(AS) -MM $(ASFLAGS) $< > $@.$$$$; \
-	 sed 's,\($(notdir $*)\)\.o[ :]*,$*.o $@ : ,g' < $@.$$$$ > $@
+$(call BUILD_d_file,cc,CXX)
+$(call BUILD_d_file,cpp,CXX)
+$(call BUILD_d_file,C,CXX)
+$(call BUILD_d_file,c,CC)
+$(call BUILD_d_file,S,AS)
 
 $(MAKEVARS):
 	@mkdir -p $@
