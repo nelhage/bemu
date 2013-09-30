@@ -16,7 +16,7 @@ MAKEVARS:=.makevars
 BEMU := bemu
 UASM := uasm/uasm
 
-TESTS=sancheck litmus bench1 bench2 bench3 bench4 supervisor align qsort timer trap jmptab
+TESTS=sancheck litmus bench1 bench2 bench3 bench4 supervisor align qsort timer trap trap2 jmptab
 TESTS_BIN=$(TESTS:%=tests/%.bin)
 
 $(BEMU): $(DEPFILES)
