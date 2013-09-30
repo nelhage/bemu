@@ -1,0 +1,3 @@
+TOOLS += uasm/uasm
+
+uasm/uasm: CXXFLAGS += -w

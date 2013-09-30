@@ -1,0 +1,3 @@
+TOOLS += bemu
+bemu_SRC := bemu.cpp bcpu.cpp bdecode.cpp bt.cpp bclock.cpp bconsole.cpp \
+	bt_helper_$(BITS).S

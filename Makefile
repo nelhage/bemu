@@ -13,38 +13,18 @@ LDFLAGS=-m$(BITS) -pthread
 
 MAKEVARS:=.makevars
 
-SRCS=bemu.cpp bcpu.cpp bdecode.cpp bt.cpp bclock.cpp bconsole.cpp
-ASMSRCS=bt_helper_$(BITS).S
-OBJECTS=$(SRCS:.cpp=.o) $(ASMSRCS:.S=.o)
-GEN_H=instructions.h
-DEPFILES=$(SRCS:%.cpp=.%.d)
-
-BEMU=bemu
-UASM=uasm/uasm
+BEMU := bemu
+UASM := uasm/uasm
 
 TESTS=sancheck litmus bench1 bench2 bench3 bench4 supervisor align qsort timer trap jmptab
 TESTS_BIN=$(TESTS:%=tests/%.bin)
 
-all: $(BEMU) $(TESTS_BIN) $(DEPFILES)
-
-$(BEMU): $(OBJECTS)
-	$(CXX) -o $@ $(LDFLAGS) $(filter-out $(MAKEVARS)/%,$^)
-
-$(UASM): CXXFLAGS += -w
-$(UASM):
-uasm: $(UASM)
-
-$(OBJECTS): instructions.h $(MAKEVARS)/CXX $(MAKEVARS)/CPPFLAGS $(MAKEVARS)/CXXFLAGS
-$(BEMU): $(MAKEVARS)/LDFLAGS
-$(ASMSRCS:.S=.o): $(MAKEVARS)/ASFLAGS
+$(BEMU): $(DEPFILES)
 
 instructions.h: insts.pl
 	perl $< -cxx > $@
 
-clean:
-	rm -f $(OBJECTS) $(BEMU)
-	rm -f tests/*.bin tests/*.map tests/*.sym
-	rm -f $(UASM) uasm/uasm.o $(GEN_H)
+EXTRA_CLEAN := tests/*.bin tests/*.map tests/*.sym $(GEN_H)
 
 %.bin: %.uasm $(UASM)
 	$(UASM) $<
@@ -68,6 +48,8 @@ check-syntax:
 	$(CC) $(CCFLAGS) -Wall -Wextra -fsyntax-only $(CHK_SOURCES)
 
 .phony: CLEAN tags check-syntax uasm
+
+DIRS := . uasm
 
 include Makefile.lib
 -include $(DEPFILES)
