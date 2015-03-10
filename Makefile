@@ -9,7 +9,11 @@ endif
 
 CXXFLAGS=-m$(BITS) -O2 -g -Wall -pthread $(if $(DEBUG),-DDEBUG=$(DEBUG)) -DHOST_BITS=$(BITS)
 ASFLAGS=-m$(BITS) -g
-LDFLAGS=-m$(BITS) -pthread
+LDFLAGS=-m$(BITS)
+ifeq ($(shell uname),Darwin)
+else
+LDFLAGS += -pthread
+endif
 
 SRCS=bemu.cpp bcpu.cpp bdecode.cpp bt.cpp bclock.cpp bconsole.cpp
 ASMSRCS=bt_helper_$(BITS).S

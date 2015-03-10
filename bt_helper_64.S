@@ -40,13 +40,15 @@
 _(bt_interp_one):
         SAVE_CPU 0
         movq %rbp, %rdi
+        pushq $0             // fix stack alignment
         call _(bt_step_one)
+        popq %rax
         LOAD_CPU
         ret
 
 _(bt_interrupt):
         SAVE_CPU
-        mov _(bt_stack_base), %rsp
+        movq _(bt_stack_base)(%rip), %rsp
         movq %rbp, %rdi
         call _(bt_process_interrupt)
         xorl %edx, %edx
@@ -58,15 +60,16 @@ _(bt_continue):
         mov %eax, %ecx
 
         /* Try a fast-path lookup of PC in the frag hash table. */
-        andl  $0x3fc, %ecx
-        movl  _(bt_frag_hash)(%ecx), %ecx
-        testl %ecx, %ecx                /* non-NULL frag */
+        andl  $0x3fb, %ecx
+        leaq _(bt_frag_hash)(%rip), %r10
+        movq  (%r10, %rcx, 1), %rcx
+        testq %rcx, %rcx                /* non-NULL frag */
         jz miss
-        cmpl  %eax, (%ecx)              /* Compare PC */
+        cmpl  %eax, (%rcx)              /* Compare PC */
         jne miss
-        movq 8(%ecx), %rcx
+        movq 16(%rcx), %rcx
 
-        cmp $0, 132(%ebp)               /* Check CPU.halt */
+        cmpl $0, 132(%ebp)              /* Check CPU.halt */
         jnz miss
 
         jmp *%rcx
@@ -89,7 +92,7 @@ _(bt_continue_ic):
 
 _(bt_enter):
         mov %rdi, %rcx
-        mov _(bt_stack_base), %rsp
-        mov $_(CPU), %rbp
+        movq _(bt_stack_base)(%rip), %rsp
+        leaq _(CPU)(%rip), %rbp
         LOAD_CPU
         jmp *%rcx

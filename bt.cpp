@@ -1,24 +1,11 @@
 #include "bemu.h"
+#include "arch.h"
 
 #include <setjmp.h>
 #include <signal.h>
-#include <sys/ucontext.h>
 
 #define PAGE_SIZE       0x1000
 #define PAGE_SHIFT      12
-
-#ifdef __linux__
-#include <sys/syscall.h>
-#include <asm/ldt.h>
-#include <unistd.h>
-
-int modify_ldt(int func, struct user_desc *ptr, unsigned long bytes) {
-    return syscall(SYS_modify_ldt, func, ptr, bytes);
-}
-#elif defined(__APPLE__)
-#include <architecture/i386/table.h>
-#include <i386/user_ldt.h>
-#endif
 
 #define asmcall __attribute__((used, regparm(3)))
 
@@ -124,82 +111,20 @@ void bt_insert_frag(compiled_frag *frag) {
 }
 
 #ifdef __i386__
-static int bt_alloc_segdesc(uintptr_t base, uint32_t pages);
-
-#ifdef __linux__
-static int bt_alloc_segdesc(uintptr_t base, uint32_t pages)
-{
-    /* FIXME to actually allocate an unused descriptor */
-    int segment = 0;
-    struct user_desc segdesc = {};
-    segdesc.entry_number    = segment;
-    segdesc.base_addr       = base;
-    segdesc.limit           = pages;
-    segdesc.seg_32bit       = 0;
-    segdesc.contents        = 0;
-    segdesc.read_exec_only  = 0;
-    segdesc.limit_in_pages  = 1;
-    segdesc.seg_not_present = 0;
-    segdesc.useable         = 0;
-
-    if(modify_ldt(1, &segdesc, sizeof(segdesc)) < 0) {
-        perror("modify_ldt");
-        panic("Unable to modify_ldt to initialize BCPU LDT!");
-    }
-
-    return segment;
-}
-#elif defined(__APPLE__)
-static  int bt_alloc_segdesc(uintptr_t base, uint32_t pages)
-{
-    int segment;
-    union ldt_entry desc = {
-        .data = {
-            .limit00 = (pages & 0xffff),
-            .base00  = (base  & 0xffff),
-            .base16  = (base  >> 16) & 0xff,
-            .type    = 0x12,
-            .dpl     = 0x3,
-            .present = 1,
-            .limit16 = (pages >> 16) & 0xff,
-            .granular = 1,
-            .base24  = base >> 24
-        }
-    };
-
-    segment = i386_set_ldt(LDT_AUTO_ALLOC, &desc, 1);
-    if(segment < 0) {
-        perror("i386_set_ldt");
-        panic("Unable to initialize the guest CPU LDT!");
-    }
-    return segment;
-}
-#endif
-
 int bt_setup_cpu_segment(beta_cpu *cpu) {
     uint32_t pages;
 
     pages = (((cpu->memsize + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)) >> PAGE_SHIFT) - 1;
-    return bt_alloc_segdesc((uintptr_t)cpu->memory, pages);
+    return arch_alloc_segdesc((uintptr_t)cpu->memory, pages);
 }
 #endif
 
-#ifdef __x86_64__
-#define BEMU_REG_IP     REG_RIP
-#define BEMU_REG_BP     REG_RBP
-#define BEMU_REG_AX     REG_RAX
-#else
-#define BEMU_REG_IP     REG_EIP
-#define BEMU_REG_BP     REG_EBP
-#define BEMU_REG_AX     REG_EAX
-#endif
-
 byteptr bt_decode_fault_addr(ucontext_t *uctx, beta_cpu *cpu, bdecode *insn) {
-    uint8_t *eip = (uint8_t*)uctx->uc_mcontext.gregs[BEMU_REG_IP];
+    uint8_t *eip = (uint8_t*)arch_get_ip(uctx);
     switch (insn->opcode) {
     case OP_LD:
     case OP_ST:
-        return uctx->uc_mcontext.gregs[BEMU_REG_AX];
+        return (byteptr)(uintptr_t)arch_get_ax(uctx);
         break;
     case OP_LDR:
         /*
@@ -220,14 +145,14 @@ byteptr bt_decode_fault_addr(ucontext_t *uctx, beta_cpu *cpu, bdecode *insn) {
 
 void bt_segv(int signo UNUSED, siginfo_t *info, void *ctx) {
     ucontext_t *uctx = (ucontext_t*)ctx;
-    uint8_t *eip = (uint8_t*)uctx->uc_mcontext.gregs[BEMU_REG_IP];
+    uint8_t *eip = arch_get_ip(uctx);
     if (eip >= frag_code_cache && eip < frag_code_alloc) {
         fault_entry *f;
         for (f = fault_table; f < fault_table_alloc; f++)
             if (f->eip == eip)
                 break;
         if (f != fault_table_alloc) {
-            beta_cpu *cpu = (beta_cpu*)uctx->uc_mcontext.gregs[BEMU_REG_BP];
+            beta_cpu *cpu = (beta_cpu*)arch_get_bp(uctx);
             bdecode decode;
             byteptr addr;
             decode_op(cpu->read_mem32(f->pc), &decode);
@@ -248,6 +173,10 @@ void bt_setup_segv_handler() {
     if(sigaction(SIGSEGV, &action, NULL) < 0) {
         perror("sigaction");
         panic("Unable to set up SEGV signal handler!");
+    }
+    if(sigaction(SIGBUS, &action, NULL) < 0) {
+        perror("sigaction");
+        panic("Unable to set up SIGBUS signal handler!");
     }
 }
 
@@ -692,27 +621,23 @@ ccbuff bt_translate_frag(compiled_frag *cfrag, decode_frag *frag) {
     return buf.eip();
 }
 
-void bt_run(beta_cpu *cpu) {
-    if(setjmp(bt_exit_buf)) {
-        return;
-    }
-
-    if(!bt_stack_base) {
-        bt_stack_base = (uint8_t*)valloc(BT_STACK_SIZE);
-        if(bt_stack_base == NULL) {
-            panic("Unable to allocate BT stack!\n");
-        }
+void bt_init() {
+    bt_stack_base = (uint8_t*)valloc(BT_STACK_SIZE);
+    if(bt_stack_base == NULL) {
+        panic("Unable to allocate BT stack!\n");
     }
     bt_stack_base += BT_STACK_SIZE;
 
-    if(!frag_code_cache) {
-        frag_code_cache = (uint8_t*)mmap(NULL, BT_CACHE_SIZE,
-                                         PROT_READ|PROT_WRITE|PROT_EXEC,
-                                         MAP_PRIVATE|MAP_32BIT|MAP_ANONYMOUS, -1, 0);
-        if(frag_code_cache == NULL) {
-            panic("Could not allocate BT cache!");
-        }
-        bt_clear_cache();
+    frag_code_cache = arch_alloc_code_buffer(BT_CACHE_SIZE);
+    if(frag_code_cache == NULL) {
+        panic("Could not allocate BT cache!");
+    }
+    bt_clear_cache();
+}
+
+void bt_run(beta_cpu *cpu) {
+    if(setjmp(bt_exit_buf)) {
+        return;
     }
 
 #ifdef __i686__

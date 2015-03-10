@@ -33,6 +33,7 @@ struct fault_entry {
 
 #define HASH_PC(pc) (((pc) >> 2) & 0xFF)
 
+void bt_init();
 void bt_run(beta_cpu *cpu);
 
 #endif

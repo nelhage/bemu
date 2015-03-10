@@ -151,7 +151,7 @@ void handle_sigint(int sig) {
 uint32_t* map_memory(int fd, size_t len) {
 #ifdef __x86_64__
     void *map = mmap(NULL, (1UL << 32) - 1, PROT_NONE,
-                     MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+                     MAP_PRIVATE|MAP_ANON, -1, 0);
     if (map == MAP_FAILED)
         return NULL;
     void *mem = mmap(map, len, PROT_READ|PROT_WRITE,
@@ -172,6 +172,8 @@ int main(int argc, char **argv)
     struct timeval start, end, delta;
 
     handle_options(argc, argv);
+
+    bt_init();
 
     fd = open(cpu_options.filename, O_RDWR);
     if(fd < 0) {
