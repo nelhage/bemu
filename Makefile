@@ -1,10 +1,12 @@
 ARCH=$(shell uname -m)
+ifeq ($(BITS),)
 ifeq ($(ARCH),x86_64)
 BITS=64
 else ifeq ($(ARCH),i686)
 BITS=32
 else
 $(error Unsupported architecture $(ARCH))
+endif
 endif
 
 CXXFLAGS=-m$(BITS) -O2 -g -Wall -pthread $(if $(DEBUG),-DDEBUG=$(DEBUG)) -DHOST_BITS=$(BITS)

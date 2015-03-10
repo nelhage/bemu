@@ -1,7 +1,7 @@
 script: make test
 env:
-  - CFLAGS=-m32 LDFLAGS=-m32
-  - CFLAGS=-m64 LDFLAGS=-m64
+  - BITS=32
+  - BITS=64
 before_install:
   - sudo apt-get update
   - sudo apt-get -y install gcc-multilib
