@@ -4,4 +4,4 @@ env:
   - BITS=64
 before_install:
   - sudo apt-get update
-  - sudo apt-get -y install gcc-multilib
+  - sudo apt-get -y install gcc-multilib g++-multilib
