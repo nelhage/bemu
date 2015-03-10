@@ -33,6 +33,7 @@ $(UASM):
 uasm: $(UASM)
 
 $(OBJECTS): instructions.h .config/CXX .config/CPPFLAGS .config/CXXFLAGS
+x86.h: instructions.h
 $(BEMU): .config/LDFLAGS
 $(ASMSRCS:.S=.o): .config/ASFLAGS
 
