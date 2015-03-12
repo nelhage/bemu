@@ -640,7 +640,7 @@ void bt_run(beta_cpu *cpu) {
         return;
     }
 
-#ifdef __i686__
+#ifdef __i386__
     cpu->segment = bt_setup_cpu_segment(cpu);
 #endif
     bt_setup_segv_handler();
@@ -716,7 +716,7 @@ void bt_translate_and_run(beta_cpu *cpu, uint32_t exact, ccbuff chainptr) {
         LOG("Chaining to frag 0x%08x", cfrag->start_pc);
     }
 
-#ifdef __i686__
+#ifdef __i386__
     __asm__("movw %%ax, %%fs\n" :: "a"(cpu->segment<<3|0x7));
 #endif
     bt_enter(cfrag->code);

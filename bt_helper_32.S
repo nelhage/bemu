@@ -38,10 +38,10 @@
 
 _(bt_interp_one):
         SAVE_CPU 0
-        subl $4, %esp
+        subl $12, %esp
         movl %ebp, %eax
         call _(bt_step_one)
-        addl $4, %esp
+        addl $12, %esp
         LOAD_CPU
         ret
 
@@ -91,7 +91,6 @@ _(bt_continue_ic):
 _(bt_enter):
         mov 4(%esp), %ecx
         mov _(bt_stack_base), %esp
-        subl $8, %esp
         mov $_(CPU), %ebp
         LOAD_CPU
         jmp *%ecx
