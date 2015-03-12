@@ -67,7 +67,7 @@ _(bt_continue):
         jne miss
         movl 8(%ecx), %ecx
 
-        cmp $0, 132(%ebp)               /* Check CPU.halt */
+        cmpl $0, 132(%ebp)              /* Check CPU.halt */
         jnz miss
 
         jmp *%ecx

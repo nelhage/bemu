@@ -79,7 +79,7 @@ typedef struct {
 #define OP_CLASS(op) ((op) >> 4)
 
 static inline void decode_op(uint32_t instr, bdecode *decode)
-    __attribute__ ((always_inline));
+    __attribute__ ((always_inline,used));
 bool decode_valid(bdecode *decode);
 char *pp_decode(bdecode *decode);
 const char *op_name(beta_op op);
