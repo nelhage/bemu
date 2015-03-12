@@ -105,8 +105,8 @@ static uint8_t *arch_get_bp(ucontext_t *uctx) {
 static uint8_t *arch_get_ax(ucontext_t *uctx) {
     return (uint8_t*)uctx->uc_mcontext->__ss.__rax;
 }
-extern "C" void bt_continue(void);
 
+extern "C" void bt_continue(void);
 static uint8_t *arch_alloc_code_buffer(size_t size) {
     void *hint = (void*)((uintptr_t)bt_continue - (1ul<<32));
     uint8_t *alloc = (uint8_t*)mmap(hint, size,
@@ -114,7 +114,27 @@ static uint8_t *arch_alloc_code_buffer(size_t size) {
                                     MAP_PRIVATE|MAP_ANON, -1, 0);
     if (alloc == (uint8_t*)MAP_FAILED)
         return NULL;
-    if (((uintptr_t)alloc - (uintptr_t)bt_continue) > (uintptr_t)(uint32_t)-1) 
+    if (((uintptr_t)alloc - (uintptr_t)bt_continue) > (uintptr_t)(uint32_t)-1)
+        return NULL;
+    return alloc;
+}
+
+#else
+static uint8_t *arch_get_ip(ucontext_t *uctx) {
+    return (uint8_t*)uctx->uc_mcontext->__ss.__eip;
+}
+static uint8_t *arch_get_bp(ucontext_t *uctx) {
+    return (uint8_t*)uctx->uc_mcontext->__ss.__ebp;
+}
+static uint8_t *arch_get_ax(ucontext_t *uctx) {
+    return (uint8_t*)uctx->uc_mcontext->__ss.__eax;
+}
+
+static uint8_t *arch_alloc_code_buffer(size_t size) {
+    uint8_t *alloc = (uint8_t*)mmap(NULL, size,
+                                    PROT_READ|PROT_WRITE|PROT_EXEC,
+                                    MAP_PRIVATE|MAP_ANON, -1, 0);
+    if (alloc == (uint8_t*)MAP_FAILED)
         return NULL;
     return alloc;
 }
